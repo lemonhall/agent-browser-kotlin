@@ -1,0 +1,6 @@
+Command:
+  .\gradlew :agent-browser-kotlin:test --no-daemon
+
+Result:
+  BUILD SUCCESSFUL
+

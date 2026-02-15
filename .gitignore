@@ -1,0 +1,61 @@
+# ------------------------------------------------------------
+# OS / Editor
+# ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.swp
+*.swo
+
+# ------------------------------------------------------------
+# IntelliJ / Android Studio
+# ------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+**/out/
+
+# ------------------------------------------------------------
+# Gradle / Kotlin
+# ------------------------------------------------------------
+.gradle/
+**/.gradle/
+.kotlin/
+**/.kotlin/
+**/build/
+
+# Local Android SDK path
+local.properties
+
+# ------------------------------------------------------------
+# Android build artifacts
+# ------------------------------------------------------------
+captures/
+**/*.apk
+**/*.ap_
+**/*.aab
+
+# External/native builds
+.externalNativeBuild/
+.cxx/
+
+# ------------------------------------------------------------
+# Secrets (keep examples committed)
+# ------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+keystore.properties
+
+# ------------------------------------------------------------
+# Node (for the JS library if/when added)
+# ------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
