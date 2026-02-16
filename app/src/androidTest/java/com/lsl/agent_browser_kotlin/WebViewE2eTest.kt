@@ -21,6 +21,7 @@ import com.lsl.agentbrowser.QueryPayload
 import com.lsl.agentbrowser.RenderOptions
 import com.lsl.agentbrowser.SelectPayload
 import com.lsl.agentbrowser.SnapshotJsOptions
+import com.lsl.agentbrowser.TypePayload
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -869,6 +870,217 @@ class WebViewE2eTest {
                 snapshotRaw = afterRaw,
                 snapshotText = afterRender.text,
             )
+            stepDelay()
+        }
+    }
+
+    @Test
+    fun v13_type_mouse_wait_and_page_navigation_e2e() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val downloadRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
+        val runPrefix = "run-${System.currentTimeMillis()}-v13"
+
+        ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
+            lateinit var webView: WebView
+            scenario.onActivity { activity -> webView = activity.webView }
+
+            clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
+            stepDelay()
+
+            // --- action: type (reuse keyboard_state.html fixture) ---
+            loadUrlAndWait(scenario, "file:///android_asset/e2e/keyboard_state.html")
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 1)
+            stepDelay()
+
+            val snap0Raw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val snap0 = AgentBrowser.parseSnapshot(snap0Raw)
+            assertTrue(snap0.ok)
+
+            val inputRef = snap0.refs.values.firstOrNull { it.tag == "input" && it.name == "Typing Field" }?.ref
+            assertNotNull("Typing Field input ref missing", inputRef)
+            val logRef = snap0.refs.values.firstOrNull { it.tag == "textarea" && it.name == "Event Log" }?.ref
+            assertNotNull("Event Log textarea ref missing", logRef)
+
+            val focusRaw = evalJs(webView, AgentBrowser.actionJs(inputRef!!, ActionKind.FOCUS))
+            assertTrue(AgentBrowser.parseAction(focusRaw).ok)
+            stepDelay()
+
+            val typeRaw = evalJs(webView, AgentBrowser.actionJs(inputRef, ActionKind.TYPE, TypePayload(text = "Hi")))
+            val typeRes = AgentBrowser.parseAction(typeRaw)
+            assertTrue(typeRes.ok)
+            stepDelay()
+
+            val valueRaw = evalJs(webView, AgentBrowser.queryJs(inputRef, QueryKind.VALUE, QueryPayload(limitChars = 200)))
+            val value = AgentBrowser.parseQuery(valueRaw)
+            assertTrue(value.ok)
+            assertTrue("expected field value to contain Hi, actual=${value.value}", (value.value ?: "").contains("Hi"))
+
+            val logValueRaw = evalJs(webView, AgentBrowser.queryJs(logRef!!, QueryKind.VALUE, QueryPayload(limitChars = 2000)))
+            val logValue = AgentBrowser.parseQuery(logValueRaw)
+            assertTrue(logValue.ok)
+            val logText = logValue.value ?: ""
+            assertTrue("expected down:H in log, got=$logText", logText.contains("down:H"))
+            assertTrue("expected up:i in log, got=$logText", logText.contains("up:i"))
+            assertTrue("expected input:Hi in log, got=$logText", logText.contains("input:Hi"))
+
+            val typedSnapRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val typedRender = AgentBrowser.renderSnapshot(
+                typedSnapRaw,
+                RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
+            )
+            scenario.onActivity { it.setSnapshotText("[V13:type] value=${value.value}\n\nlog:\n$logText\n\n${typedRender.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 2)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 2,
+                snapshotRaw = typedSnapRaw,
+                snapshotText = typedRender.text,
+            )
+            stepDelay()
+
+            // --- page: wait + mouse events ---
+            loadUrlAndWait(scenario, "file:///android_asset/e2e/mouse_wait.html")
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 3)
+            stepDelay()
+
+            val waitRaw = evalJs(webView, AgentBrowser.pageJs(PageKind.WAIT, PagePayload(selector = "#delayed", timeoutMs = 4000)))
+            val waitRes = AgentBrowser.parsePage(waitRaw)
+            assertTrue(waitRes.ok)
+            stepDelay()
+
+            val msnapRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val msnap = AgentBrowser.parseSnapshot(msnapRaw)
+            assertTrue(msnap.ok)
+            val mouseLogRef = msnap.refs.values.firstOrNull { it.tag == "textarea" && it.name == "Mouse Log" }?.ref
+            assertNotNull("Mouse Log textarea ref missing", mouseLogRef)
+
+            val x = 80
+            val y = 220
+            assertTrue(AgentBrowser.parsePage(evalJs(webView, AgentBrowser.mouseMoveJs(x, y))).ok)
+            assertTrue(AgentBrowser.parsePage(evalJs(webView, AgentBrowser.mouseDownJs(x, y))).ok)
+            assertTrue(AgentBrowser.parsePage(evalJs(webView, AgentBrowser.mouseUpJs(x, y))).ok)
+            assertTrue(AgentBrowser.parsePage(evalJs(webView, AgentBrowser.wheelJs(x, y, deltaX = 0, deltaY = 120))).ok)
+            stepDelay()
+
+            val mlogRaw = evalJs(webView, AgentBrowser.queryJs(mouseLogRef!!, QueryKind.VALUE, QueryPayload(limitChars = 2000)))
+            val mlog = AgentBrowser.parseQuery(mlogRaw)
+            assertTrue(mlog.ok)
+            val mlogText = mlog.value ?: ""
+            assertTrue("expected move: in mouse log, got=$mlogText", mlogText.contains("move:"))
+            assertTrue("expected down: in mouse log, got=$mlogText", mlogText.contains("down:"))
+            assertTrue("expected up: in mouse log, got=$mlogText", mlogText.contains("up:"))
+            assertTrue("expected wheel: in mouse log, got=$mlogText", mlogText.contains("wheel:"))
+
+            val msnap2Raw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val msnap2Render = AgentBrowser.renderSnapshot(
+                msnap2Raw,
+                RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
+            )
+            scenario.onActivity { it.setSnapshotText("[V13:mouse+wait] wait=ok\n\nmouse log:\n$mlogText\n\n${msnap2Render.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 4)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 4,
+                snapshotRaw = msnap2Raw,
+                snapshotText = msnap2Render.text,
+            )
+            stepDelay()
+
+            // --- page: navigate/back/forward/reload ---
+            loadUrlAndWait(scenario, "file:///android_asset/e2e/nav1.html")
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 5)
+            stepDelay()
+
+            val blockedNavRaw = evalJs(webView, AgentBrowser.navigateJs("javascript:alert(1)"))
+            val blockedNav = AgentBrowser.parsePage(blockedNavRaw)
+            assertTrue(!blockedNav.ok)
+            assertEquals("invalid_url", blockedNav.error?.code)
+            scenario.onActivity { it.setSnapshotText("[V13:nav] blocked navigate -> ${blockedNav.error?.code}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 6)
+            stepDelay()
+
+            val navTo2 = CountDownLatch(1)
+            scenario.onActivity { activity ->
+                activity.webView.webViewClient = object : android.webkit.WebViewClient() {
+                    override fun onPageFinished(view: WebView?, finishedUrl: String?) {
+                        if ((finishedUrl ?: "").contains("nav2.html")) navTo2.countDown()
+                    }
+                }
+            }
+            val nav2Raw = evalJs(webView, AgentBrowser.navigateJs("file:///android_asset/e2e/nav2.html"))
+            assertTrue(AgentBrowser.parsePage(nav2Raw).ok)
+            assertTrue("navigation timed out: nav1 -> nav2", navTo2.await(10, TimeUnit.SECONDS))
+            scenario.onActivity {
+                assertTrue("expected nav2.html url after navigation, actual=${it.webView.url}", (it.webView.url ?: "").contains("nav2.html"))
+            }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 7)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            stepDelay()
+
+            val backTo1 = CountDownLatch(1)
+            scenario.onActivity { activity ->
+                activity.webView.webViewClient = object : android.webkit.WebViewClient() {
+                    override fun onPageFinished(view: WebView?, finishedUrl: String?) {
+                        if ((finishedUrl ?: "").contains("nav1.html")) backTo1.countDown()
+                    }
+                }
+            }
+            val backRaw = evalJs(webView, AgentBrowser.backJs())
+            assertTrue(AgentBrowser.parsePage(backRaw).ok)
+            assertTrue("navigation timed out: back to nav1", backTo1.await(10, TimeUnit.SECONDS))
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 8)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            stepDelay()
+
+            val forwardTo2 = CountDownLatch(1)
+            scenario.onActivity { activity ->
+                activity.webView.webViewClient = object : android.webkit.WebViewClient() {
+                    override fun onPageFinished(view: WebView?, finishedUrl: String?) {
+                        if ((finishedUrl ?: "").contains("nav2.html")) forwardTo2.countDown()
+                    }
+                }
+            }
+            val forwardRaw = evalJs(webView, AgentBrowser.forwardJs())
+            assertTrue(AgentBrowser.parsePage(forwardRaw).ok)
+            assertTrue("navigation timed out: forward to nav2", forwardTo2.await(10, TimeUnit.SECONDS))
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 9)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            stepDelay()
+
+            val reloadDone = CountDownLatch(1)
+            scenario.onActivity { activity ->
+                activity.webView.webViewClient = object : android.webkit.WebViewClient() {
+                    override fun onPageFinished(view: WebView?, finishedUrl: String?) {
+                        if ((finishedUrl ?: "").contains("nav2.html")) reloadDone.countDown()
+                    }
+                }
+            }
+            val reloadRaw = evalJs(webView, AgentBrowser.reloadJs())
+            assertTrue(AgentBrowser.parsePage(reloadRaw).ok)
+            assertTrue("navigation timed out: reload nav2", reloadDone.await(10, TimeUnit.SECONDS))
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 10)
             stepDelay()
         }
     }

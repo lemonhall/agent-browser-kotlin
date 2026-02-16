@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mouse + Wait + Navigation (Offline)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
+    .muted { color: #666; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+    .box {
+      width: 220px;
+      height: 120px;
+      position: fixed;
+      left: 16px;
+      top: 170px;
+      border-radius: 14px;
+      border: 2px solid #111827;
+      background: linear-gradient(180deg, #eef2ff 0%, #fff 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      touch-action: none;
+    }
+    textarea { width: 100%; height: 180px; padding: 10px 12px; border-radius: 12px; border: 1px solid #ccc; white-space: pre; }
+    .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #f3f4f6; border: 1px solid #e5e7eb; }
+    a { color: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <h1>Mouse + Wait + Navigation</h1>
+  <div class="muted">Offline fixture for WebView E2E: page.wait + page.mouse* + page.wheel + page.navigate/back/forward/reload.</div>
+
+  <div class="row">
+    <span class="pill" id="state">state: booting</span>
+    <a id="navLink" href="nav1.html" aria-label="Nav Link">Go nav1</a>
+  </div>
+
+  <div class="row">
+    <div id="box" class="box" aria-label="Mouse Target Box">Target Box</div>
+  </div>
+
+  <h2>Mouse Log</h2>
+  <textarea id="mlog" aria-label="Mouse Log" readonly></textarea>
+
+  <script>
+    const box = document.getElementById('box');
+    const state = document.getElementById('state');
+    const logEl = document.getElementById('mlog');
+
+    const counts = { move: 0, down: 0, up: 0, wheel: 0 };
+
+    function log(line) {
+      logEl.value = (logEl.value ? logEl.value + "\n" : "") + line;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function render() {
+      state.textContent = `state: move=${counts.move} down=${counts.down} up=${counts.up} wheel=${counts.wheel}`;
+    }
+
+    box.addEventListener('mousemove', (e) => { counts.move++; render(); log(`move:${Math.round(e.clientX)},${Math.round(e.clientY)}`); });
+    box.addEventListener('mousedown', (e) => { counts.down++; render(); log(`down:${e.button}`); });
+    box.addEventListener('mouseup', (e) => { counts.up++; render(); log(`up:${e.button}`); });
+    box.addEventListener('wheel', (e) => { counts.wheel++; render(); log(`wheel:${Math.round(e.deltaX||0)},${Math.round(e.deltaY||0)}`); });
+
+    setTimeout(() => {
+      const delayed = document.createElement('div');
+      delayed.id = 'delayed';
+      delayed.textContent = 'DELAYED: READY';
+      delayed.setAttribute('aria-label', 'Delayed Ready');
+      delayed.style.marginTop = '12px';
+      delayed.style.padding = '10px 12px';
+      delayed.style.borderRadius = '12px';
+      delayed.style.border = '1px dashed #10b981';
+      delayed.style.background = '#ecfdf5';
+      document.body.appendChild(delayed);
+      log('delayed:inserted');
+    }, 1200);
+
+    render();
+    state.textContent = 'state: ready';
+    log('ready');
+  </script>
+</body>
+</html>

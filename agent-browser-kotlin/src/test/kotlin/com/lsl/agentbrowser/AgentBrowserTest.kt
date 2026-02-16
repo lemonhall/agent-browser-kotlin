@@ -323,6 +323,14 @@ class AgentBrowserTest {
     }
 
     @Test
+    fun actionJs_supportsTypePayload() {
+        val js = AgentBrowser.actionJs("e1", ActionKind.TYPE, TypePayload(text = "abc"))
+        assertContains(js, "window.__agentBrowser.action(")
+        assertContains(js, "'type'")
+        assertContains(js, "\"text\":\"abc\"")
+    }
+
+    @Test
     fun actionJs_supportsClearAndCheckKinds() {
         val clear = AgentBrowser.actionJs("e1", ActionKind.CLEAR)
         assertContains(clear, "'clear'")
@@ -368,6 +376,53 @@ class AgentBrowserTest {
         assertContains(js, "window.__agentBrowser.page(")
         assertContains(js, "'scroll'")
         assertContains(js, "\"deltaY\":200")
+    }
+
+    @Test
+    fun pageJs_supportsNavigationAndMouseKinds() {
+        val nav = AgentBrowser.navigateJs("file:///android_asset/e2e/nav2.html")
+        assertContains(nav, "window.__agentBrowser.page('navigate'")
+        assertContains(nav, "\"url\":\"file:///android_asset/e2e/nav2.html\"")
+
+        val back = AgentBrowser.backJs()
+        assertContains(back, "window.__agentBrowser.page('back'")
+
+        val forward = AgentBrowser.forwardJs()
+        assertContains(forward, "window.__agentBrowser.page('forward'")
+
+        val reload = AgentBrowser.reloadJs()
+        assertContains(reload, "window.__agentBrowser.page('reload'")
+
+        val mm = AgentBrowser.mouseMoveJs(10, 20)
+        assertContains(mm, "window.__agentBrowser.page('mouseMove'")
+        assertContains(mm, "\"x\":10")
+        assertContains(mm, "\"y\":20")
+
+        val wheel = AgentBrowser.wheelJs(10, 20, deltaX = 1, deltaY = 2)
+        assertContains(wheel, "window.__agentBrowser.page('wheel'")
+        assertContains(wheel, "\"deltaX\":1")
+        assertContains(wheel, "\"deltaY\":2")
+    }
+
+    @Test
+    fun parseSafe_methods_turnInvalidJson_intoStructuredError() {
+        val bad = "{not valid json"
+
+        val snap = AgentBrowser.parseSnapshotSafe(bad)
+        assertTrue(!snap.ok)
+        assertEquals("invalid_json", snap.error?.code)
+
+        val act = AgentBrowser.parseActionSafe(bad)
+        assertTrue(!act.ok)
+        assertEquals("invalid_json", act.error?.code)
+
+        val q = AgentBrowser.parseQuerySafe(bad)
+        assertTrue(!q.ok)
+        assertEquals("invalid_json", q.error?.code)
+
+        val p = AgentBrowser.parsePageSafe(bad)
+        assertTrue(!p.ok)
+        assertEquals("invalid_json", p.error?.code)
     }
 
     @Test

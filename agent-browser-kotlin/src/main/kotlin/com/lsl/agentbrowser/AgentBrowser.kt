@@ -45,6 +45,7 @@ object AgentBrowser {
         val kindString = when (kind) {
             ActionKind.CLICK -> "click"
             ActionKind.FILL -> "fill"
+            ActionKind.TYPE -> "type"
             ActionKind.SELECT -> "select"
             ActionKind.CHECK -> "check"
             ActionKind.UNCHECK -> "uncheck"
@@ -57,6 +58,7 @@ object AgentBrowser {
         val payloadJson = when (payload) {
             null -> "{}"
             is FillPayload -> json.encodeToString(payload)
+            is TypePayload -> json.encodeToString(payload)
             is SelectPayload -> json.encodeToString(payload)
         }
         val normalizedRef = normalizeRefInput(ref)
@@ -67,6 +69,19 @@ object AgentBrowser {
     fun parseSnapshot(json: String): SnapshotResult {
         val normalized = normalizeJsEvalResult(json)
         return AgentBrowser.json.decodeFromString<SnapshotResult>(normalized)
+    }
+
+    fun parseSnapshotSafe(json: String): SnapshotResult {
+        val normalized = normalizeJsEvalResult(json)
+        return try {
+            AgentBrowser.json.decodeFromString<SnapshotResult>(normalized)
+        } catch (t: Throwable) {
+            SnapshotResult(
+                ok = false,
+                type = "snapshot",
+                error = JsError(code = "invalid_json", message = t.message),
+            )
+        }
     }
 
     fun renderSnapshot(snapshotJson: String, options: RenderOptions = RenderOptions()): SnapshotRenderResult {
@@ -117,6 +132,19 @@ object AgentBrowser {
         return AgentBrowser.json.decodeFromString<ActionResult>(normalized)
     }
 
+    fun parseActionSafe(json: String): ActionResult {
+        val normalized = normalizeJsEvalResult(json)
+        return try {
+            AgentBrowser.json.decodeFromString<ActionResult>(normalized)
+        } catch (t: Throwable) {
+            ActionResult(
+                ok = false,
+                type = "action",
+                error = JsError(code = "invalid_json", message = t.message),
+            )
+        }
+    }
+
     fun queryJs(ref: String, kind: QueryKind, payload: QueryPayload = QueryPayload()): String {
         val payloadJson = json.encodeToString(payload)
         val normalizedRef = normalizeRefInput(ref)
@@ -129,6 +157,19 @@ object AgentBrowser {
         return AgentBrowser.json.decodeFromString<QueryResult>(normalized)
     }
 
+    fun parseQuerySafe(json: String): QueryResult {
+        val normalized = normalizeJsEvalResult(json)
+        return try {
+            AgentBrowser.json.decodeFromString<QueryResult>(normalized)
+        } catch (t: Throwable) {
+            QueryResult(
+                ok = false,
+                type = "query",
+                error = JsError(code = "invalid_json", message = t.message),
+            )
+        }
+    }
+
     fun parseQueryResult(json: String): QueryResult = parseQuery(json)
 
     fun pageJs(kind: PageKind, payload: PagePayload = PagePayload()): String {
@@ -139,6 +180,19 @@ object AgentBrowser {
     fun parsePage(json: String): PageResult {
         val normalized = normalizeJsEvalResult(json)
         return AgentBrowser.json.decodeFromString<PageResult>(normalized)
+    }
+
+    fun parsePageSafe(json: String): PageResult {
+        val normalized = normalizeJsEvalResult(json)
+        return try {
+            AgentBrowser.json.decodeFromString<PageResult>(normalized)
+        } catch (t: Throwable) {
+            PageResult(
+                ok = false,
+                type = "page",
+                error = JsError(code = "invalid_json", message = t.message),
+            )
+        }
     }
 
     // --- PRD-V4 6.2 helpers (ergonomic sugar) ---
@@ -174,6 +228,33 @@ object AgentBrowser {
 
     fun charJs(text: String): String =
         pageJs(PageKind.CHAR, PagePayload(text = text))
+
+    fun navigateJs(url: String): String =
+        pageJs(PageKind.NAVIGATE, PagePayload(url = url))
+
+    fun backJs(): String =
+        pageJs(PageKind.BACK, PagePayload())
+
+    fun forwardJs(): String =
+        pageJs(PageKind.FORWARD, PagePayload())
+
+    fun reloadJs(): String =
+        pageJs(PageKind.RELOAD, PagePayload())
+
+    fun waitForSelectorJs(selector: String, timeoutMs: Int = 2000): String =
+        pageJs(PageKind.WAIT, PagePayload(selector = selector, timeoutMs = timeoutMs))
+
+    fun mouseMoveJs(x: Int, y: Int): String =
+        pageJs(PageKind.MOUSE_MOVE, PagePayload(x = x, y = y))
+
+    fun mouseDownJs(x: Int, y: Int, button: Int = 0): String =
+        pageJs(PageKind.MOUSE_DOWN, PagePayload(x = x, y = y, button = button))
+
+    fun mouseUpJs(x: Int, y: Int, button: Int = 0): String =
+        pageJs(PageKind.MOUSE_UP, PagePayload(x = x, y = y, button = button))
+
+    fun wheelJs(x: Int, y: Int, deltaX: Int = 0, deltaY: Int = 120): String =
+        pageJs(PageKind.WHEEL, PagePayload(x = x, y = y, deltaX = deltaX, deltaY = deltaY))
 
     fun getUrlJs(): String =
         "JSON.stringify((window.__agentBrowser && window.__agentBrowser.page && window.__agentBrowser.page.getUrl) ? window.__agentBrowser.page.getUrl() : (location && location.href ? location.href : ''))"

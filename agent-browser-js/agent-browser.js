@@ -375,6 +375,88 @@
     try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (_e4) {}
   }
 
+  function typeWithEvents(el, text) {
+    var t = safeString(text);
+    if (!t) return;
+    try { el.focus && el.focus(); } catch (_e0) {}
+
+    var tag = '';
+    try { tag = (el.tagName || '').toLowerCase(); } catch (_e1) { tag = ''; }
+    var isTextInput = tag === 'input' || tag === 'textarea';
+    var isContentEditable = false;
+    try { isContentEditable = !!el.isContentEditable; } catch (_e2) { isContentEditable = false; }
+
+    for (var i = 0; i < t.length; i++) {
+      var ch = t.charAt(i);
+      try { if (typeof KeyboardEvent !== 'undefined') el.dispatchEvent(new KeyboardEvent('keydown', { key: ch, bubbles: true })); } catch (_e3) {}
+      try { if (typeof KeyboardEvent !== 'undefined') el.dispatchEvent(new KeyboardEvent('keypress', { key: ch, bubbles: true })); } catch (_e4) {}
+
+      if (isTextInput) {
+        try {
+          var next = safeString(el.value) + ch;
+          var proto = el instanceof HTMLInputElement ? HTMLInputElement.prototype : (el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : null);
+          var desc = proto ? Object.getOwnPropertyDescriptor(proto, 'value') : null;
+          if (desc && desc.set) desc.set.call(el, next);
+          else el.value = next;
+        } catch (_e5) {
+          try { el.value = safeString(el.value) + ch; } catch (_e6) {}
+        }
+        try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e7) {}
+      } else if (isContentEditable && document.execCommand) {
+        try { document.execCommand('insertText', false, ch); } catch (_e8) {}
+        try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e9) {}
+      }
+
+      try { if (typeof KeyboardEvent !== 'undefined') el.dispatchEvent(new KeyboardEvent('keyup', { key: ch, bubbles: true })); } catch (_e10) {}
+    }
+
+    try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (_e11) {}
+  }
+
+  function isBlockedNavigateUrl(url) {
+    var u = safeString(url).trim();
+    if (!u) return true;
+    var lower = u.toLowerCase();
+    if (lower.indexOf('javascript:') === 0) return true;
+    if (lower.indexOf('data:') === 0) return true;
+    if (lower.indexOf('vbscript:') === 0) return true;
+    return false;
+  }
+
+  function elementFromPointSafe(x, y) {
+    try {
+      return document.elementFromPoint ? document.elementFromPoint(x, y) : null;
+    } catch (_e0) {
+      return null;
+    }
+  }
+
+  function dispatchMouseAt(type, x, y, payload) {
+    var el = elementFromPointSafe(x, y) || document.body;
+    var opts = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y };
+    var button = payload && typeof payload.button === 'number' ? payload.button : 0;
+    opts.button = button;
+    opts.buttons = (type === 'mouseup') ? 0 : 1;
+    try {
+      el.dispatchEvent(new MouseEvent(type, opts));
+    } catch (_e0) {}
+    return el;
+  }
+
+  function dispatchWheelAt(x, y, payload) {
+    var el = elementFromPointSafe(x, y) || document.body;
+    var dx = payload && typeof payload.deltaX === 'number' ? payload.deltaX : 0;
+    var dy = payload && typeof payload.deltaY === 'number' ? payload.deltaY : 0;
+    try {
+      if (typeof WheelEvent !== 'undefined') {
+        el.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, deltaX: dx, deltaY: dy }));
+      } else {
+        el.dispatchEvent(new MouseEvent('wheel', { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y }));
+      }
+    } catch (_e0) {}
+    return el;
+  }
+
   function pageScrollByXY(x, y) {
     try { window.scrollBy(x, y); } catch (_e1) {
       try { window.scrollBy({ left: x, top: y, behavior: 'auto' }); } catch (_e2) {}
@@ -619,6 +701,11 @@
         return makeOk('action', { ref: r, action: k });
       }
 
+      if (k === 'type') {
+        typeWithEvents(el, payload.text != null ? payload.text : payload.value);
+        return makeOk('action', { ref: r, action: k });
+      }
+
       if (k === 'select') {
         try {
           if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
@@ -832,24 +919,98 @@
       }
 
       if (k === 'pressKey') {
-        var res = pagePressKey(payload.key);
+        var kk0 = safeString(payload.key);
+        if (!kk0) return makeErr('page', { kind: k }, 'invalid_key', 'key is required');
+        var res = pagePressKey(kk0);
         return makeOk('page', { kind: k, key: res.key });
       }
 
       if (k === 'keyDown') {
-        var res2 = pageKeyDown(payload.key);
+        var kk1 = safeString(payload.key);
+        if (!kk1) return makeErr('page', { kind: k }, 'invalid_key', 'key is required');
+        var res2 = pageKeyDown(kk1);
         return makeOk('page', { kind: k, key: res2.key });
       }
 
       if (k === 'keyUp') {
-        var res3 = pageKeyUp(payload.key);
+        var kk2 = safeString(payload.key);
+        if (!kk2) return makeErr('page', { kind: k }, 'invalid_key', 'key is required');
+        var res3 = pageKeyUp(kk2);
         return makeOk('page', { kind: k, key: res3.key });
       }
 
       if (k === 'char') {
         var text = payload.text != null ? payload.text : payload.char;
-        var res4 = pageChar(text);
+        var tt = safeString(text);
+        if (!tt) return makeErr('page', { kind: k }, 'invalid_text', 'text is required');
+        var res4 = pageChar(tt);
         return makeOk('page', { kind: k, text: res4.text });
+      }
+
+      if (k === 'navigate') {
+        var url = safeString(payload.url != null ? payload.url : payload.href).trim();
+        if (!url) return makeErr('page', { kind: k }, 'invalid_url', 'url is required');
+        if (isBlockedNavigateUrl(url)) return makeErr('page', { kind: k, url: url }, 'invalid_url', 'blocked url scheme');
+        try { location.assign ? location.assign(url) : (location.href = url); } catch (_e6) {
+          try { location.href = url; } catch (_e7) {}
+        }
+        return makeOk('page', { kind: k, url: url });
+      }
+
+      if (k === 'back') {
+        try { history && history.back && history.back(); } catch (_e8) {}
+        return makeOk('page', { kind: k });
+      }
+
+      if (k === 'forward') {
+        try { history && history.forward && history.forward(); } catch (_e9) {}
+        return makeOk('page', { kind: k });
+      }
+
+      if (k === 'reload') {
+        try { location && location.reload && location.reload(); } catch (_e10) {}
+        return makeOk('page', { kind: k });
+      }
+
+      if (k === 'wait') {
+        var timeoutMs = typeof payload.timeoutMs === 'number' ? payload.timeoutMs : (typeof payload.timeout === 'number' ? payload.timeout : 2000);
+        var selector = payload.selector != null ? safeString(payload.selector).trim() : '';
+        var containsText = payload.text != null ? safeString(payload.text) : (payload.containsText != null ? safeString(payload.containsText) : '');
+        containsText = safeString(containsText).trim();
+        if (!selector && !containsText) return makeErr('page', { kind: k }, 'invalid_wait', 'wait requires selector or text');
+        var started = now();
+        while (now() - started < timeoutMs) {
+          if (selector) {
+            try {
+              var selEl = document.querySelector(selector);
+              if (selEl && isVisible(selEl)) return makeOk('page', { kind: k, selector: selector });
+            } catch (_e11) {}
+          }
+          if (containsText) {
+            try {
+              var body = document.body;
+              var bodyText = body ? safeString(body.innerText || body.textContent || '') : '';
+              if (bodyText.indexOf(containsText) >= 0) return makeOk('page', { kind: k, text: containsText });
+            } catch (_e12) {}
+          }
+        }
+        return makeErr('page', { kind: k, selector: selector, text: containsText }, 'timeout', 'wait timed out');
+      }
+
+      if (k === 'mouseMove' || k === 'mouseDown' || k === 'mouseUp') {
+        var x2 = typeof payload.x === 'number' ? payload.x : null;
+        var y2 = typeof payload.y === 'number' ? payload.y : null;
+        if (x2 == null || y2 == null) return makeErr('page', { kind: k }, 'invalid_coords', 'x/y are required');
+        var t2 = (k === 'mouseMove') ? 'mousemove' : (k === 'mouseDown' ? 'mousedown' : 'mouseup');
+        var target2 = dispatchMouseAt(t2, x2, y2, payload);
+        return makeOk('page', { kind: k, x: x2, y: y2, target: safeString(target2 && target2.tagName) });
+      }
+
+      if (k === 'wheel') {
+        var x3 = typeof payload.x === 'number' ? payload.x : 1;
+        var y3 = typeof payload.y === 'number' ? payload.y : 1;
+        var target3 = dispatchWheelAt(x3, y3, payload);
+        return makeOk('page', { kind: k, x: x3, y: y3, target: safeString(target3 && target3.tagName) });
       }
 
       return makeErr('page', { kind: k }, 'unsupported_page', 'unsupported page: ' + k);
@@ -867,5 +1028,14 @@
     pageFn.keyDown = function (key) { return pageKeyDown(key); };
     pageFn.keyUp = function (key) { return pageKeyUp(key); };
     pageFn.char = function (text) { return pageChar(text); };
+    pageFn.navigate = function (url) { return window.__agentBrowser.page('navigate', { url: url }); };
+    pageFn.back = function () { return window.__agentBrowser.page('back', {}); };
+    pageFn.forward = function () { return window.__agentBrowser.page('forward', {}); };
+    pageFn.reload = function () { return window.__agentBrowser.page('reload', {}); };
+    pageFn.wait = function (selector, timeoutMs) { return window.__agentBrowser.page('wait', { selector: selector, timeoutMs: timeoutMs }); };
+    pageFn.mouseMove = function (x, y) { return window.__agentBrowser.page('mouseMove', { x: x, y: y }); };
+    pageFn.mouseDown = function (x, y, button) { return window.__agentBrowser.page('mouseDown', { x: x, y: y, button: button }); };
+    pageFn.mouseUp = function (x, y, button) { return window.__agentBrowser.page('mouseUp', { x: x, y: y, button: button }); };
+    pageFn.wheel = function (x, y, deltaX, deltaY) { return window.__agentBrowser.page('wheel', { x: x, y: y, deltaX: deltaX, deltaY: deltaY }); };
   } catch (_eFinal) {}
 })();

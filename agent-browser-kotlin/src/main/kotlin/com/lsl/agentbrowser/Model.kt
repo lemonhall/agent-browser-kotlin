@@ -82,6 +82,7 @@ data class SnapshotJsOptions(
 enum class ActionKind {
     CLICK,
     FILL,
+    TYPE,
     SELECT,
     CHECK,
     UNCHECK,
@@ -98,6 +99,12 @@ sealed interface ActionPayload
 @SerialName("fill")
 data class FillPayload(
     val value: String,
+) : ActionPayload
+
+@Serializable
+@SerialName("type")
+data class TypePayload(
+    val text: String,
 ) : ActionPayload
 
 @Serializable
@@ -152,6 +159,15 @@ enum class PageKind(val wire: String) {
     KEY_DOWN("keyDown"),
     KEY_UP("keyUp"),
     CHAR("char"),
+    NAVIGATE("navigate"),
+    BACK("back"),
+    FORWARD("forward"),
+    RELOAD("reload"),
+    WAIT("wait"),
+    MOUSE_MOVE("mouseMove"),
+    MOUSE_DOWN("mouseDown"),
+    MOUSE_UP("mouseUp"),
+    WHEEL("wheel"),
 }
 
 @Serializable
@@ -163,6 +179,10 @@ data class PagePayload(
     val behavior: String? = null,
     val key: String? = null,
     val text: String? = null,
+    val url: String? = null,
+    val selector: String? = null,
+    val timeoutMs: Int? = null,
+    val button: Int? = null,
 )
 
 @Serializable

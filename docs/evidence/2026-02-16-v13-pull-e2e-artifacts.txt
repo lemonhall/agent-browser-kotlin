@@ -1,0 +1,4 @@
+Pulling artifacts into E:\development\agent-browser-kotlin\adb_dumps\\e2e\20260216-152234
+Selected latest run=1771226289572 (16 frames)
+OK: pulled snapshots: adb_dumps\\e2e\\latest\\snapshots\\ (files=20)
+OK: built mp4 from frames: adb_dumps\\e2e\\latest\\e2e-latest.mp4
