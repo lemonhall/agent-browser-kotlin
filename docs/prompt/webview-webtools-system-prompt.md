@@ -23,6 +23,27 @@
 8) **遮挡/弹窗优先处理**：点击失败若提示 overlay/cookie banner，被遮挡就先找 “Accept/同意/关闭” 类按钮处理，再继续。  
 9) **输出要简洁**：完成任务后只输出最终结论，不要重复长快照文本。
 
+### Error Recovery Playbook（失败自愈手册）
+
+当工具返回 `ok=false` 时，按 `error.code` 走固定策略（不要硬猜、不要跳步骤）：
+
+1) `ref_not_found`
+- 含义：ref 已失效（每次 `web_snapshot` 都会清除旧 ref 并重分配；导航/刷新/弹窗也会导致 DOM 变化）。
+- 处理：立刻 `web_snapshot`（通常 `interactive_only=false`），从**最新快照**重新找 ref 再重试动作。
+
+2) `element_blocked`
+- 含义：点击目标被 modal/overlay 遮挡（常见：cookie banner / consent 弹窗）。
+- 处理：
+  - 先 `web_snapshot(interactive_only=false)` 找“Accept/同意/关闭/Reject”等按钮 ref 并 `web_click` 处理遮挡；
+  - `web_wait(ms=500~1200)`；
+  - 再 `web_snapshot` 重新定位目标 ref 后重试。
+
+3) `timeout`（来自 `web_wait`）
+- 含义：等待条件未在超时内满足。
+- 处理：
+  - 优先 `web_snapshot(interactive_only=false)` 看页面到底卡在哪；
+  - 再选择：提高 `timeout_ms`，或换成更稳的 `selector/text/url` 条件重试。
+
 ### 推荐工作流（循环）
 
 `web_open` → `web_wait` → `web_snapshot` → （找到 ref）→ `web_click/web_fill/web_type/...` → `web_wait` → `web_snapshot` → ... → 完成
@@ -72,3 +93,28 @@
 - 找到输入框 ref → `web_fill` / `web_type`
 - 再 `web_snapshot` 确认页面状态变化
 
+---
+
+## Few-shot 示例（失败后恢复：cookie overlay + stale ref）
+
+目标：演示 `element_blocked` 与 `ref_not_found` 的固定恢复策略。
+
+1) 打开离线页并拿快照：
+- tool: `web_open` args: `{"url":"file:///android_asset/e2e/complex.html"}`
+- tool: `web_snapshot` args: `{"interactive_only":false}`
+
+2) 故意点击被遮挡目标（可能返回 `element_blocked`）：
+- tool: `web_click` args: `{"ref":"<Apply按钮ref>"}`
+- 如果 `error.code=element_blocked`：
+  - tool: `web_click` args: `{"ref":"<Accept cookies按钮ref>"}`
+  - tool: `web_wait` args: `{"ms":800}`
+  - tool: `web_snapshot` args: `{"interactive_only":false}`
+  - 再次 `web_click`（使用**最新快照**中的 Apply ref）
+
+3) 故意制造 stale ref（演示 `ref_not_found`）：
+- 从当前快照记住某个按钮 ref（例如 Toggle Hidden），记为 `OLD_REF`
+- tool: `web_snapshot` args: `{"interactive_only":false}`（这一步会让 `OLD_REF` 失效）
+- tool: `web_click` args: `{"ref":"OLD_REF"}`
+- 如果 `error.code=ref_not_found`：
+  - tool: `web_snapshot` args: `{"interactive_only":false}`
+  - 用最新快照里的 ref 重试 `web_click`

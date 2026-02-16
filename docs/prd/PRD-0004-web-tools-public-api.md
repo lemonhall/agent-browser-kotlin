@@ -95,3 +95,18 @@
 3) 必须提供导航：`web_open/back/forward/reload`。
 4) wait 只允许一个 tool：`web_wait`。
 5) `web_eval` 必须默认禁用且可控开启。
+
+## 7. 错误语义（给 Agent 的“恢复口径”）
+
+工具返回统一形态（示例）：
+
+```json
+{ "ok": false, "error": { "code": "ref_not_found", "message": "ref e12 not found" } }
+```
+
+关键错误码与推荐恢复策略（system prompt 也应覆盖）：
+
+- `ref_not_found`：ref 已失效（PRD-V4 §7：每次 snapshot 会清除旧 ref 并重分配）。处理：立刻 `web_snapshot`，从最新快照重新找 ref 再重试。
+- `element_blocked`：点击被 modal/overlay（常见 cookie banner）遮挡。处理：先处理弹窗（找 Accept/关闭/Reject 等按钮 ref 点击），再 `web_snapshot` 重新定位目标 ref。
+- `timeout`（`web_wait`）：等待条件超时。处理：先 `web_snapshot` 看页面状态，再提高 `timeout_ms` 或改用更稳的 selector/text/url 条件。
+- `invalid_url`：URL scheme 被拒绝（如 `javascript:`/`data:` 等）。处理：改用 `http(s)://` 或 `file:///android_asset/...`。

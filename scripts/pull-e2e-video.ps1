@@ -100,8 +100,11 @@ function EncodeAndHighlight([string]$s) {
   $enc = $enc.Replace("agree: true", "<mark class='ok'>agree: true</mark>")
   $enc = $enc.Replace("agree: false", "<mark class='bad'>agree: false</mark>")
   $enc = $enc.Replace("ref_not_found", "<mark class='warn'>ref_not_found</mark>")
+  $enc = $enc.Replace("element_blocked", "<mark class='warn'>element_blocked</mark>")
   $enc = $enc.Replace("truncated=true", "<mark class='warn'>truncated=true</mark>")
   $enc = $enc.Replace("blocked by another element", "<mark class='warn'>blocked by another element</mark>")
+  $enc = $enc.Replace("cookie banners", "<mark class='warn'>cookie banners</mark>")
+  $enc = $enc.Replace("web_wait timed out", "<mark class='warn'>web_wait timed out</mark>")
   return $enc
 }
 

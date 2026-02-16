@@ -24,6 +24,7 @@ import me.lemonhall.openagentic.sdk.events.Result
 import me.lemonhall.openagentic.sdk.events.AssistantMessage
 import me.lemonhall.openagentic.sdk.events.SystemInit
 import me.lemonhall.openagentic.sdk.events.ToolUse
+import me.lemonhall.openagentic.sdk.events.ToolResult
 import me.lemonhall.openagentic.sdk.permissions.PermissionGate
 import me.lemonhall.openagentic.sdk.runtime.OpenAgenticOptions
 import me.lemonhall.openagentic.sdk.runtime.OpenAgenticSdk
@@ -329,6 +330,172 @@ class WebViewAgentE2eTest {
             artifacts.dumpSnapshotArtifacts(snapshotRaw = finalRaw, snapshotText = finalRender.text, step = finalStep)
 
             assertTrue("expected NAV2 banner in final snapshot", finalRender.text.contains("NAV2: You are on page 2"))
+            assertTrue("expected finalText to start with OK", result0.finalText.trim().startsWith("OK"))
+        }
+    }
+
+    @Test
+    fun agent_tool_loop_can_recover_from_element_blocked_and_ref_not_found() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+
+        val args = InstrumentationRegistry.getArguments()
+        val apiKey = args.getString("OPENAI_API_KEY").orEmpty().trim()
+        val baseUrl = args.getString("OPENAI_BASE_URL").orEmpty().trim().ifEmpty { "https://api.openai.com/v1" }
+        val model = args.getString("MODEL").orEmpty().trim().ifEmpty { "gpt-5.2" }
+        val protocol = args.getString("OPENAI_PROTOCOL").orEmpty().trim().lowercase().ifEmpty { "responses" }
+        assumeTrue("OPENAI_API_KEY missing; skipping real-agent E2E", apiKey.isNotEmpty())
+
+        val downloadFramesRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
+        val runPrefix = "run-${System.currentTimeMillis()}-agent-recover"
+
+        ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
+            lateinit var webView: WebView
+            scenario.onActivity { webView = it.webView }
+
+            loadUrlAndWait(scenario, "about:blank")
+
+            clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
+            stepDelay()
+
+            runBlocking { evalJs(webView, AgentBrowser.getScript()) }
+            scenario.onActivity { it.setSnapshotText("[BOOT] injected agent-browser.js\n\nrunPrefix=$runPrefix") }
+
+            val artifacts =
+                E2eArtifacts(
+                    instrumentation = instrumentation,
+                    device = device,
+                    scenario = scenario,
+                    runPrefix = runPrefix,
+                    framesRelativePath = downloadFramesRelativePath,
+                    snapshotsRelativePath = downloadSnapshotsRelativePath,
+                    nextStep = 1,
+                )
+            artifacts.captureFrame()
+            stepDelay()
+
+            val storeRoot = File(instrumentation.targetContext.filesDir, ".agents").absolutePath
+            val sessionStore = FileSessionStore.system(storeRoot)
+
+            val allowEval =
+                args.getString("ENABLE_WEB_EVAL")
+                    .orEmpty()
+                    .trim()
+                    .lowercase() in setOf("1", "true", "yes", "y")
+            val runtime = WebToolRuntime(webView = webView, artifacts = artifacts, allowEval = allowEval)
+            val tools = ToolRegistry(OpenAgenticWebTools.all(runtime))
+            val provider =
+                when (protocol) {
+                    "legacy", "chat", "chat-completions" -> OpenAIChatCompletionsHttpProvider(baseUrl = baseUrl)
+                    "responses", "sse" -> OpenAIResponsesSseHttpProvider(baseUrl = baseUrl)
+                    else -> OpenAIResponsesSseHttpProvider(baseUrl = baseUrl)
+                }
+
+            val options =
+                OpenAgenticOptions(
+                    provider = provider,
+                    model = model,
+                    apiKey = apiKey,
+                    cwd = instrumentation.targetContext.filesDir.absolutePath.toPath(),
+                    projectDir = instrumentation.targetContext.filesDir.absolutePath.toPath(),
+                    tools = tools,
+                    allowedTools = tools.names().toSet(),
+                    permissionGate = PermissionGate.bypass(),
+                    sessionStore = sessionStore,
+                    maxSteps = 26,
+                )
+
+            val prompt =
+                """
+                你在一个离线网页（Android WebView）里执行任务，只能使用提供的 web_* tools。
+
+                规则：
+                - 任何元素操作都必须来自“最新一次 web_snapshot”的 ref；注意：每次 web_snapshot 都会清除旧 ref 并重分配。
+                - 不要尝试获取整页 outerHTML；只用 snapshot + query 读取必要信息。
+                - 遇到 element_blocked（overlay/cookie）要先处理遮挡，再重新 snapshot 重试。
+                - 遇到 ref_not_found（stale ref）要重新 snapshot 后再重试。
+                - 为了留下证据：你必须先触发到 element_blocked，再触发到 ref_not_found（都要在 tool.result 里出现 error.code）。
+
+                目标：在 complex.html 上演示两种失败恢复（必须真的触发到 error.code）：
+
+                A) element_blocked（cookie overlay）
+                1) web_open(url="file:///android_asset/e2e/complex.html")
+                2) web_snapshot(interactive_only=false)
+                3) 【不要先点 Accept cookies】先找到 “Apply” 按钮的 ref，直接 web_click 该 ref（此时 cookie overlay 仍在，预期返回 element_blocked）
+                4) 如果返回 element_blocked：找到 “Accept cookies” 按钮 ref 并 web_click；web_wait(ms=800)
+                5) web_snapshot(interactive_only=false)
+                6) web_fill 把 Query 输入框填入 "hello"
+                7) web_click “Apply” 按钮（用最新快照里的 ref）
+                8) web_wait(ms=800)
+                9) web_snapshot(interactive_only=false)，确认页面出现 "Applied: hello"
+
+                B) ref_not_found（stale ref）
+                10) 现在为了演示 stale ref，你必须 **强制** 调用一次：web_click(ref="e404")（这个 ref 在本页一定不存在，预期返回 ref_not_found）
+                11) 如果返回 ref_not_found：web_snapshot(interactive_only=false) 并用最新 ref 点击 “Toggle Hidden”
+                12) web_wait(ms=800)
+                13) web_snapshot(interactive_only=false)，确认出现 "Hidden Action"
+
+                完成后仅回复：OK
+                """.trimIndent()
+
+            val events = runBlocking { OpenAgenticSdk.query(prompt = prompt, options = options).toList() }
+            val init = events.filterIsInstance<SystemInit>().firstOrNull()
+            val result = events.filterIsInstance<Result>().lastOrNull()
+            val toolUses = events.filterIsInstance<ToolUse>()
+            val toolResults = events.filterIsInstance<ToolResult>()
+            val assistantMessages = events.filterIsInstance<AssistantMessage>()
+
+            assertNotNull("missing SystemInit", init)
+            assertNotNull("missing Result", result)
+            val init0 = init ?: throw AssertionError("missing SystemInit")
+            val result0 = result ?: throw AssertionError("missing Result")
+            runtime.writeSessionId(init0.sessionId)
+            // Persist sessions/events for human review even when assertions fail.
+            runCatching {
+                val sessionDir = File(storeRoot, "sessions/${init0.sessionId}")
+                val eventsPath = File(sessionDir, "events.jsonl")
+                val metaPath = File(sessionDir, "meta.json")
+                if (eventsPath.exists()) artifacts.writeTextArtifact("${runPrefix}-events.jsonl", eventsPath.readText(Charsets.UTF_8), minBytes = 16)
+                if (metaPath.exists()) artifacts.writeTextArtifact("${runPrefix}-meta.json", metaPath.readText(Charsets.UTF_8), minBytes = 16)
+            }
+            artifacts.setUiText(
+                "[AGENT] finished\n\nprovider=${provider.name}\nprotocol=$protocol\n\nsession_id=${init0.sessionId}\n" +
+                    "tool_uses=${toolUses.size}\n" +
+                    "tool_results=${toolResults.size}\n" +
+                    "assistant_msgs=${assistantMessages.size}\n\n" +
+                    "finalText=${result0.finalText.take(400)}",
+            )
+            artifacts.captureFrame()
+
+            assertTrue("expected tool uses, got 0", toolUses.isNotEmpty())
+
+            fun toolResultHasErrorCode(code: String): Boolean {
+                for (tr in toolResults) {
+                    val out = tr.output as? kotlinx.serialization.json.JsonObject ?: continue
+                    val err = out["error"] as? kotlinx.serialization.json.JsonObject ?: continue
+                    val c = (err["code"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: continue
+                    if (c == code) return true
+                }
+                return false
+            }
+
+            assertTrue("expected element_blocked to occur at least once", toolResultHasErrorCode("element_blocked"))
+            assertTrue("expected ref_not_found to occur at least once", toolResultHasErrorCode("ref_not_found"))
+
+            val finalRaw = runBlocking { evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false))) }
+            val finalRender = AgentBrowser.renderSnapshot(finalRaw, RenderOptions(maxCharsTotal = 9000, maxNodes = 320, maxDepth = 14, compact = true))
+            artifacts.setUiText(
+                "[FINAL] agent completed\n\nsession_id=${init0.sessionId}\n" +
+                    "tool_uses=${toolUses.size}\n\n" +
+                    finalRender.text,
+            )
+            val finalStep = artifacts.captureFrame()
+            artifacts.dumpSnapshotArtifacts(snapshotRaw = finalRaw, snapshotText = finalRender.text, step = finalStep)
+
+            assertTrue("expected Applied: hello in final snapshot", finalRender.text.contains("Applied: hello"))
+            assertTrue("expected Hidden Action in final snapshot", finalRender.text.contains("Hidden Action"))
             assertTrue("expected finalText to start with OK", result0.finalText.trim().startsWith("OK"))
         }
     }
