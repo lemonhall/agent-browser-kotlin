@@ -18,9 +18,9 @@
 
 | Milestone | 范围 | DoD（可二元判定） | 验证方式 | 状态 |
 |---|---|---|---|---|
-| M11 | Action 扩展 | JS 支持新增 action；Kotlin `ActionKind` + payload 对齐；单测覆盖 | `.\gradlew :agent-browser-kotlin:test` | todo |
-| M12 | Query 扩展 | JS 支持 `value/html/computed_styles`；Kotlin 增加 `queryJs/parseQuery`；单测覆盖 | `.\gradlew :agent-browser-kotlin:test` | todo |
-| M13 | 真机 E2E 可观测 | E2E 增加 clear/check/uncheck 的断言（通过 query/value 或 DOM 文本体现），并输出截图帧 + mp4 | `.\gradlew :app:connectedAndroidTest` | todo |
+| M11 | Action 扩展 | JS 支持新增 action；Kotlin `ActionKind` + payload 对齐；单测覆盖 | `.\gradlew :agent-browser-kotlin:test` | done |
+| M12 | Query 扩展 | JS 支持 `value/html/computed_styles`；Kotlin 增加 `queryJs/parseQuery`；单测覆盖 | `.\gradlew :agent-browser-kotlin:test` | done |
+| M13 | 真机 E2E 可观测 | E2E 增加 clear/check/uncheck 的断言（通过 query/value 或 DOM 文本体现），并输出截图帧 + mp4 | `.\gradlew :app:connectedAndroidTest` | done |
 
 ## 计划索引
 
@@ -31,6 +31,10 @@
 
 | PRD-V4 模块 | v3 Plan | tests/commands | 证据 | 状态 |
 |---|---|---|---|---|
-| Action（5.3） | v3-agent-browser-core §ACTION-MORE | `.\gradlew :agent-browser-kotlin:test` + E2E | — | todo |
-| Query（5.4） | v3-agent-browser-core §QUERY-MORE | `.\gradlew :agent-browser-kotlin:test` + E2E | — | todo |
+| Action（5.3） | v3-agent-browser-core §ACTION-MORE | `.\gradlew :agent-browser-kotlin:test` + `.\gradlew :app:connectedAndroidTest` | `docs/evidence/2026-02-16-v3-connectedAndroidTest.txt` | done |
+| Query（5.4） | v3-agent-browser-core §QUERY-MORE | `.\gradlew :agent-browser-kotlin:test` + `.\gradlew :app:connectedAndroidTest` | `docs/evidence/2026-02-16-v3-connectedAndroidTest.txt` | done |
 
+## Evidence quick links
+
+- 人类可回看 mp4 产物：`docs/evidence/2026-02-16-e2e-video.txt`
+- v3 验收摘要：`docs/evidence/2026-02-16-v3-connectedAndroidTest.txt`

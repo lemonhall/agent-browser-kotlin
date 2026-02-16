@@ -18,3 +18,8 @@
 - Page（5.5）页面级操作
 - Snapshot：CONTENT ref 分配规则/角色集合收敛/更多 stats 维度
 
+## v3 完成情况（结果回填）
+
+- ✅ Action：新增 `check/uncheck/clear/focus/hover/scroll_into_view`（并调整 click/fill/select 的 scrollIntoView 语义）
+- ✅ Query：新增 `computed_styles`，Kotlin 增加 `queryJs/parseQuery`
+- ✅ 真机证据：`docs/evidence/2026-02-16-v3-connectedAndroidTest.txt`

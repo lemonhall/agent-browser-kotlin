@@ -7,10 +7,11 @@ Commands (PowerShell):
 
 Expected artifacts:
   - Device frames (Downloads):
-      /sdcard/Download/agent-browser-kotlin/e2e/frames/step-*.png
+      /sdcard/Download/agent-browser-kotlin/e2e/frames/run-<millis>-step-*.png
   - Local mp4 (built from frames):
       adb_dumps\e2e\latest\e2e-latest.mp4
 
 Notes:
   - The instrumentation test pauses ~3.5s between steps for human observation.
   - The pull script requires ffmpeg in PATH.
+  - The pull script selects the latest `run-<millis>-*` group to avoid mixing old frames.

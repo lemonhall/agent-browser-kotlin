@@ -187,4 +187,12 @@ class AgentBrowserTest {
         assertContains(js, "\"limitChars\":123")
     }
 
+    @Test
+    fun pageJs_encodesKindAndPayload() {
+        val js = AgentBrowser.pageJs(PageKind.SCROLL, PagePayload(deltaY = 200))
+        assertContains(js, "window.__agentBrowser.page(")
+        assertContains(js, "'scroll'")
+        assertContains(js, "\"deltaY\":200")
+    }
+
 }

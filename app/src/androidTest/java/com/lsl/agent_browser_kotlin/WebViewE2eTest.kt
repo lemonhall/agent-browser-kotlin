@@ -14,6 +14,10 @@ import androidx.test.uiautomator.UiDevice
 import com.lsl.agentbrowser.ActionKind
 import com.lsl.agentbrowser.AgentBrowser
 import com.lsl.agentbrowser.FillPayload
+import com.lsl.agentbrowser.PageKind
+import com.lsl.agentbrowser.PagePayload
+import com.lsl.agentbrowser.QueryKind
+import com.lsl.agentbrowser.QueryPayload
 import com.lsl.agentbrowser.RenderOptions
 import com.lsl.agentbrowser.SelectPayload
 import com.lsl.agentbrowser.SnapshotJsOptions
@@ -35,6 +39,7 @@ class WebViewE2eTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val device = UiDevice.getInstance(instrumentation)
         val downloadRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val runPrefix = "run-${System.currentTimeMillis()}"
 
         ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
             lateinit var webView: WebView
@@ -42,23 +47,24 @@ class WebViewE2eTest {
 
             loadUrlAndWait(scenario, "file:///android_asset/e2e/complex.html")
 
-            clearOldFrames(instrumentation, downloadRelativePath)
+            clearOldFrames(instrumentation)
             stepDelay()
 
             evalJs(webView, AgentBrowser.getScript())
-            captureStep(instrumentation, device, downloadRelativePath, 1)
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 1)
             stepDelay()
 
             val snapshot1Raw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
             val snapshot1 = AgentBrowser.parseSnapshot(snapshot1Raw)
             assertTrue(snapshot1.ok)
+            assertTrue("content nodes should have refs in v4 (expected h1 ref)", snapshot1.refs.values.any { it.tag == "h1" })
             val render1 = AgentBrowser.renderSnapshot(
                 snapshot1Raw,
                 RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
             )
             Log.i("WebViewE2E", render1.text)
             scenario.onActivity { it.setSnapshotText("[STEP 1] initial\n\n${render1.text}") }
-            captureStep(instrumentation, device, downloadRelativePath, 2)
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 2)
             stepDelay()
 
             assertTrue("aria-hidden section should not appear", !render1.text.contains("Should Not Appear"))
@@ -70,12 +76,35 @@ class WebViewE2eTest {
             val fillResult = AgentBrowser.parseAction(fillRaw)
             assertTrue(fillResult.ok)
 
+            val q1Raw = evalJs(webView, AgentBrowser.queryJs(inputRef1, QueryKind.VALUE, QueryPayload(limitChars = 200)))
+            val q1 = AgentBrowser.parseQuery(q1Raw)
+            assertTrue(q1.ok)
+            assertEquals("hello", q1.value)
+            scenario.onActivity { it.setSnapshotText("[STEP 2] query(value) after fill = ${q1.value}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 3)
+            stepDelay()
+
+            val clearRaw = evalJs(webView, AgentBrowser.actionJs(inputRef1, ActionKind.CLEAR))
+            val clearResult = AgentBrowser.parseAction(clearRaw)
+            assertTrue(clearResult.ok)
+            val q2Raw = evalJs(webView, AgentBrowser.queryJs(inputRef1, QueryKind.VALUE, QueryPayload(limitChars = 200)))
+            val q2 = AgentBrowser.parseQuery(q2Raw)
+            assertTrue(q2.ok)
+            assertEquals("", q2.value)
+            scenario.onActivity { it.setSnapshotText("[STEP 3] query(value) after clear = \"${q2.value}\"") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 4)
+            stepDelay()
+
+            val fillAgainRaw = evalJs(webView, AgentBrowser.actionJs(inputRef1, ActionKind.FILL, FillPayload("hello")))
+            val fillAgainResult = AgentBrowser.parseAction(fillAgainRaw)
+            assertTrue(fillAgainResult.ok)
+
             val snapshot2Raw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
             val snapshot2 = AgentBrowser.parseSnapshot(snapshot2Raw)
             assertTrue(snapshot2.ok)
             val render2 = AgentBrowser.renderSnapshot(snapshot2Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
-            scenario.onActivity { it.setSnapshotText("[STEP 2] after fill\n\n${render2.text}") }
-            captureStep(instrumentation, device, downloadRelativePath, 3)
+            scenario.onActivity { it.setSnapshotText("[STEP 4] after fill (again)\n\n${render2.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 5)
             stepDelay()
 
             val selectRef2 = snapshot2.refs.values.firstOrNull { it.tag == "select" }?.ref
@@ -89,8 +118,8 @@ class WebViewE2eTest {
             assertTrue(snapshot3.ok)
 
             val render3 = AgentBrowser.renderSnapshot(snapshot3Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
-            scenario.onActivity { it.setSnapshotText("[STEP 3] after select beta\n\n${render3.text}") }
-            captureStep(instrumentation, device, downloadRelativePath, 4)
+            scenario.onActivity { it.setSnapshotText("[STEP 5] after select beta\n\n${render3.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 6)
             stepDelay()
 
             assertTrue("snapshot should reflect mode change", render3.text.contains("mode: beta"))
@@ -105,45 +134,109 @@ class WebViewE2eTest {
             val snapshot4 = AgentBrowser.parseSnapshot(snapshot4Raw)
             assertTrue(snapshot4.ok)
             val render4 = AgentBrowser.renderSnapshot(snapshot4Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
-            scenario.onActivity { it.setSnapshotText("[STEP 4] after Add Item\n\n${render4.text}") }
-            captureStep(instrumentation, device, downloadRelativePath, 5)
+            scenario.onActivity { it.setSnapshotText("[STEP 6] after Add Item\n\n${render4.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 7)
             stepDelay()
             assertTrue("snapshot should contain the new list item", render4.text.contains("hello"))
 
             val toggleButtonRef4 = snapshot4.refs.values.firstOrNull { it.tag == "button" && it.name == "Toggle Hidden" }?.ref
             assertNotNull("Toggle Hidden button ref missing", toggleButtonRef4)
-            val clickToggleRaw = evalJs(webView, AgentBrowser.actionJs(toggleButtonRef4!!, ActionKind.CLICK))
-            val clickToggleResult = AgentBrowser.parseAction(clickToggleRaw)
-            assertTrue(clickToggleResult.ok)
+            val stylesRaw = evalJs(webView, AgentBrowser.queryJs(toggleButtonRef4!!, QueryKind.COMPUTED_STYLES, QueryPayload(limitChars = 800)))
+            val styles = AgentBrowser.parseQuery(stylesRaw)
+            assertTrue(styles.ok)
+            assertTrue("computed_styles should include display", (styles.value ?: "").contains("display"))
+            val attrsRaw = evalJs(webView, AgentBrowser.queryJs(toggleButtonRef4, QueryKind.ATTRS, QueryPayload(limitChars = 1200)))
+            val attrs = AgentBrowser.parseQuery(attrsRaw)
+            assertTrue(attrs.ok)
+            assertTrue("attrs should include id=btnToggle", (attrs.value ?: "").contains("\"id\":\"btnToggle\""))
+            scenario.onActivity { it.setSnapshotText("[STEP 7] query(computed_styles) Toggle Hidden\n\n${styles.value}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 8)
+            stepDelay()
+
+            val checkboxRef4 =
+                snapshot4.refs.values.firstOrNull { it.tag == "input" && (it.attrs["type"] ?: "").lowercase() == "checkbox" }?.ref
+            assertNotNull("checkbox ref missing", checkboxRef4)
+            val checkRaw = evalJs(webView, AgentBrowser.actionJs(checkboxRef4!!, ActionKind.CHECK))
+            val checkResult = AgentBrowser.parseAction(checkRaw)
+            assertTrue(checkResult.ok)
 
             val snapshot5Raw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
             val snapshot5 = AgentBrowser.parseSnapshot(snapshot5Raw)
             assertTrue(snapshot5.ok)
             val render5 = AgentBrowser.renderSnapshot(snapshot5Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
-            scenario.onActivity { it.setSnapshotText("[STEP 5] after Toggle Hidden\n\n${render5.text}") }
-            captureStep(instrumentation, device, downloadRelativePath, 6)
+            scenario.onActivity { it.setSnapshotText("[STEP 8] after CHECK\n\n${render5.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 9)
             stepDelay()
-            assertTrue("hidden action should appear after toggling", render5.text.contains("Hidden Action"))
+            assertTrue("agree text should be true after CHECK", render5.text.contains("agree: true"))
 
-            val hiddenActionRef5 = snapshot5.refs.values.firstOrNull { it.tag == "button" && it.name == "Hidden Action" }?.ref
-            assertNotNull("Hidden Action button ref missing", hiddenActionRef5)
-            val clickHiddenRaw = evalJs(webView, AgentBrowser.actionJs(hiddenActionRef5!!, ActionKind.CLICK))
-            val clickHiddenResult = AgentBrowser.parseAction(clickHiddenRaw)
-            assertTrue(clickHiddenResult.ok)
+            val checkboxRef5 =
+                snapshot5.refs.values.firstOrNull { it.tag == "input" && (it.attrs["type"] ?: "").lowercase() == "checkbox" }?.ref
+            assertNotNull("checkbox ref missing (after CHECK)", checkboxRef5)
+            val uncheckRaw = evalJs(webView, AgentBrowser.actionJs(checkboxRef5!!, ActionKind.UNCHECK))
+            val uncheckResult = AgentBrowser.parseAction(uncheckRaw)
+            assertTrue(uncheckResult.ok)
 
             val snapshot6Raw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
             val snapshot6 = AgentBrowser.parseSnapshot(snapshot6Raw)
             assertTrue(snapshot6.ok)
             val render6 = AgentBrowser.renderSnapshot(snapshot6Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
-            scenario.onActivity { it.setSnapshotText("[STEP 6] after Hidden Action\n\n${render6.text}") }
-            captureStep(instrumentation, device, downloadRelativePath, 7)
+            scenario.onActivity { it.setSnapshotText("[STEP 9] after UNCHECK\n\n${render6.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 10)
             stepDelay()
-            assertTrue("status should reflect hidden click", render6.text.contains("hidden-clicked"))
+            assertTrue("agree text should be false after UNCHECK", render6.text.contains("agree: false"))
+
+            val toggleButtonRef6 = snapshot6.refs.values.firstOrNull { it.tag == "button" && it.name == "Toggle Hidden" }?.ref
+            assertNotNull("Toggle Hidden button ref missing (after UNCHECK)", toggleButtonRef6)
+            val clickToggleRaw = evalJs(webView, AgentBrowser.actionJs(toggleButtonRef6!!, ActionKind.CLICK))
+            val clickToggleResult = AgentBrowser.parseAction(clickToggleRaw)
+            assertTrue(clickToggleResult.ok)
+
+            val snapshot7Raw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val snapshot7 = AgentBrowser.parseSnapshot(snapshot7Raw)
+            assertTrue(snapshot7.ok)
+            val render7 = AgentBrowser.renderSnapshot(snapshot7Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
+            scenario.onActivity { it.setSnapshotText("[STEP 10] after Toggle Hidden\n\n${render7.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 11)
+            stepDelay()
+            assertTrue("hidden action should appear after toggling", render7.text.contains("Hidden Action"))
+
+            val hiddenActionRef7 = snapshot7.refs.values.firstOrNull { it.tag == "button" && it.name == "Hidden Action" }?.ref
+            assertNotNull("Hidden Action button ref missing", hiddenActionRef7)
+            val clickHiddenRaw = evalJs(webView, AgentBrowser.actionJs(hiddenActionRef7!!, ActionKind.CLICK))
+            val clickHiddenResult = AgentBrowser.parseAction(clickHiddenRaw)
+            assertTrue(clickHiddenResult.ok)
+
+            val snapshot8Raw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val snapshot8 = AgentBrowser.parseSnapshot(snapshot8Raw)
+            assertTrue(snapshot8.ok)
+            val render8 = AgentBrowser.renderSnapshot(snapshot8Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
+            scenario.onActivity { it.setSnapshotText("[STEP 11] after Hidden Action\n\n${render8.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 12)
+            stepDelay()
+            assertTrue("status should reflect hidden click", render8.text.contains("hidden-clicked"))
 
             loadUrlAndWait(scenario, "file:///android_asset/e2e/stress.html")
             stepDelay()
 
             evalJs(webView, AgentBrowser.getScript())
+            stepDelay()
+
+            val info0Raw = evalJs(webView, AgentBrowser.pageJs(PageKind.INFO))
+            val info0 = AgentBrowser.parsePage(info0Raw)
+            assertTrue(info0.ok)
+            scenario.onActivity { it.setSnapshotText("[PAGE] info before scroll: scrollY=${info0.scrollY} viewport=${info0.viewport}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 14)
+            stepDelay()
+
+            val scrollRaw = evalJs(webView, AgentBrowser.pageJs(PageKind.SCROLL, PagePayload(deltaY = 900)))
+            val scrollRes = AgentBrowser.parsePage(scrollRaw)
+            assertTrue(scrollRes.ok)
+            val info1Raw = evalJs(webView, AgentBrowser.pageJs(PageKind.INFO))
+            val info1 = AgentBrowser.parsePage(info1Raw)
+            assertTrue(info1.ok)
+            assertTrue("scrollY should increase after scroll", (info1.scrollY ?: 0) > (info0.scrollY ?: 0))
+            scenario.onActivity { it.setSnapshotText("[PAGE] info after scroll: scrollY=${info1.scrollY}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 15)
             stepDelay()
 
             val stressRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = true)))
@@ -154,10 +247,10 @@ class WebViewE2eTest {
             assertTrue("stress snapshot jsonBytes should be < 100KB (actual=$jsonBytes)", jsonBytes < 100 * 1024)
 
             val jsTime = stress.stats?.jsTimeMs
-            val perfLine = "[STEP 7] stress snapshot jsonBytes=$jsonBytes jsTimeMs=$jsTime"
+            val perfLine = "[STEP 16] stress snapshot jsonBytes=$jsonBytes jsTimeMs=$jsTime"
             Log.i("WebViewE2E", perfLine)
             scenario.onActivity { it.setSnapshotText(perfLine) }
-            captureStep(instrumentation, device, downloadRelativePath, 8)
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 16)
             stepDelay()
         }
     }
@@ -192,15 +285,15 @@ class WebViewE2eTest {
         Thread.sleep(ms)
     }
 
-    private fun clearOldFrames(instrumentation: android.app.Instrumentation, relativePath: String) {
+    private fun clearOldFrames(instrumentation: android.app.Instrumentation) {
         if (Build.VERSION.SDK_INT < 29) return
         val resolver = instrumentation.targetContext.contentResolver
         val projection = arrayOf(MediaStore.Downloads._ID)
         resolver.query(
             MediaStore.Downloads.EXTERNAL_CONTENT_URI,
             projection,
-            "${MediaStore.Downloads.RELATIVE_PATH}=? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?",
-            arrayOf(relativePath, "step-%.png"),
+            "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?",
+            arrayOf("%agent-browser-kotlin/e2e/frames%", "%step-%.png"),
             null,
         )?.use { cursor ->
             val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
@@ -216,10 +309,11 @@ class WebViewE2eTest {
         instrumentation: android.app.Instrumentation,
         device: UiDevice,
         relativePath: String,
+        runPrefix: String,
         step: Int,
     ) {
         val stepStr = if (step < 10) "0$step" else step.toString()
-        val displayName = "step-$stepStr.png"
+        val displayName = "$runPrefix-step-$stepStr.png"
 
         val tmp = File(instrumentation.targetContext.cacheDir, "tmp-$displayName")
         if (tmp.exists()) tmp.delete()

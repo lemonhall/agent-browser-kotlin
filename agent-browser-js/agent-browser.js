@@ -120,7 +120,7 @@
   }
 
   function pickAttrs(el, maxValueLen) {
-    var whitelist = ['href', 'name', 'type', 'value', 'placeholder', 'aria-label', 'role'];
+    var whitelist = ['href', 'name', 'type', 'value', 'placeholder', 'aria-label', 'role', 'alt'];
     var out = {};
     for (var i = 0; i < whitelist.length; i++) {
       var k = whitelist[i];
@@ -216,6 +216,35 @@
     try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (_e4) {}
   }
 
+  function pageScrollByXY(x, y) {
+    try { window.scrollBy(x, y); } catch (_e1) {
+      try { window.scrollBy({ left: x, top: y, behavior: 'auto' }); } catch (_e2) {}
+    }
+    return { success: true, scrollX: window.scrollX || 0, scrollY: window.scrollY || 0 };
+  }
+
+  function pageScrollToXY(x, y) {
+    try { window.scrollTo(x, y); } catch (_e1) {
+      try { window.scrollTo({ left: x, top: y, behavior: 'auto' }); } catch (_e2) {}
+    }
+    return { success: true, scrollX: window.scrollX || 0, scrollY: window.scrollY || 0 };
+  }
+
+  function pageGetUrl() { return safeString(location && location.href); }
+  function pageGetTitle() { return safeString(document && document.title); }
+
+  function pagePressKey(key) {
+    var kk = safeString(key);
+    try {
+      var el = document.activeElement;
+      if (el && typeof KeyboardEvent !== 'undefined') {
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: kk, bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent('keyup', { key: kk, bubbles: true }));
+      }
+    } catch (_e1) {}
+    return { success: true, key: kk };
+  }
+
   window.__agentBrowser = {
     snapshot: function snapshot(options) {
       var cfg = options || {};
@@ -239,13 +268,22 @@
         return makeErr('snapshot', {}, 'no_root', 'document.body not found');
       }
 
-      var stats = { nodesVisited: 0, nodesEmitted: 0, truncated: false, truncateReasons: [] };
+      var stats = { domNodes: 0, skippedHidden: 0, nodesVisited: 0, nodesEmitted: 0, truncated: false, truncateReasons: [] };
       var refs = {};
       var refSeq = 1;
 
+      try {
+        if (rootEl && rootEl.getElementsByTagName) stats.domNodes = (rootEl.getElementsByTagName('*').length || 0) + 1;
+      } catch (_e0) {
+        stats.domNodes = 0;
+      }
+
       function walk(el, depth) {
         if (!el || el.nodeType !== 1) return null;
-        if (!isVisible(el)) return null;
+        if (!isVisible(el)) {
+          stats.skippedHidden++;
+          return null;
+        }
 
         stats.nodesVisited++;
         if (stats.nodesVisited > maxNodes) {
@@ -284,7 +322,8 @@
         }
 
         var ref = null;
-        if (interactive) {
+        var shouldRef = interactive || (!interactiveOnly && isContent);
+        if (shouldRef) {
           ref = 'e' + refSeq++;
           assignRef(el, ref);
           refs[ref] = {
@@ -316,8 +355,12 @@
       var tree = walk(rootEl, 0) || { tag: 'body', role: 'document', children: [] };
       stats.jsTimeMs = now() - started;
       return {
+        version: 1,
         ok: true,
         type: 'snapshot',
+        url: safeString(location && location.href),
+        title: safeString(document && document.title),
+        timestamp: now(),
         meta: { url: safeString(location && location.href), title: safeString(document && document.title), ts: now() },
         stats: stats,
         refs: refs,
@@ -430,8 +473,18 @@
       }
 
       if (k === 'attrs') {
-        var attrs = pickAttrs(el, 150);
-        var json = JSON.stringify(attrs);
+        var out = {};
+        try {
+          var list = el.attributes || [];
+          for (var ai = 0; ai < list.length; ai++) {
+            var a = list[ai];
+            if (!a) continue;
+            out[safeString(a.name)] = clampString(a.value, 150);
+          }
+        } catch (_e0) {
+          out = {};
+        }
+        var json = JSON.stringify(out);
         var tr = json.length > limit;
         var val = tr ? json.slice(0, limit) : json;
         return makeOk('query', { ref: r, kind: k, value: val, truncated: tr });
@@ -483,13 +536,65 @@
       return makeErr('query', { ref: r, kind: k }, 'unsupported_query', 'unsupported query: ' + k);
     },
     page: function page(kind, _payload) {
-      return {
-        ok: false,
-        type: 'page',
-        kind: String(kind || ''),
-        meta: { ts: now() },
-        error: { code: 'not_implemented', message: 'page not implemented in v1 skeleton' },
-      };
+      var k = safeString(kind);
+      var payload = _payload || {};
+
+      if (k === 'info') {
+        var vp = { width: 0, height: 0 };
+        try { vp.width = window.innerWidth || 0; vp.height = window.innerHeight || 0; } catch (_e1) {}
+        var sx = 0;
+        var sy = 0;
+        try { sx = window.scrollX || 0; sy = window.scrollY || 0; } catch (_e2) {}
+        return makeOk('page', {
+          kind: k,
+          url: pageGetUrl(),
+          title: pageGetTitle(),
+          scrollX: sx,
+          scrollY: sy,
+          viewport: vp,
+        });
+      }
+
+      if (k === 'scroll') {
+        var dx = typeof payload.deltaX === 'number' ? payload.deltaX : 0;
+        var dy = typeof payload.deltaY === 'number' ? payload.deltaY : 0;
+        var x = typeof payload.x === 'number' ? payload.x : null;
+        var y = typeof payload.y === 'number' ? payload.y : null;
+        var behavior = safeString(payload.behavior || '');
+        try {
+          if (x != null || y != null) {
+            if (window.scrollTo) window.scrollTo({ left: x || 0, top: y || 0, behavior: behavior || 'auto' });
+          } else if (window.scrollBy) {
+            window.scrollBy({ left: dx, top: dy, behavior: behavior || 'auto' });
+          }
+        } catch (_e3) {
+          try {
+            if (x != null || y != null) window.scrollTo(x || 0, y || 0);
+            else window.scrollBy(dx, dy);
+          } catch (_e4) {}
+        }
+        var sx2 = 0;
+        var sy2 = 0;
+        try { sx2 = window.scrollX || 0; sy2 = window.scrollY || 0; } catch (_e5) {}
+        return makeOk('page', { kind: k, scrollX: sx2, scrollY: sy2 });
+      }
+
+      if (k === 'pressKey') {
+        var res = pagePressKey(payload.key);
+        return makeOk('page', { kind: k, key: res.key });
+      }
+
+      return makeErr('page', { kind: k }, 'unsupported_page', 'unsupported page: ' + k);
     },
   };
+
+  // PRD-V4 compatible sugar: allow calling as object methods (page.scrollBy/getUrl/etc).
+  try {
+    var pageFn = window.__agentBrowser.page;
+    pageFn.scrollBy = function (x, y) { return pageScrollByXY(x, y); };
+    pageFn.scrollTo = function (x, y) { return pageScrollToXY(x, y); };
+    pageFn.getUrl = function () { return pageGetUrl(); };
+    pageFn.getTitle = function () { return pageGetTitle(); };
+    pageFn.pressKey = function (key) { return pagePressKey(key); };
+  } catch (_eFinal) {}
 })();

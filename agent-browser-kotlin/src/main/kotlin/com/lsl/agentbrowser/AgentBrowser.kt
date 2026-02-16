@@ -79,6 +79,16 @@ object AgentBrowser {
         val normalized = normalizeJsEvalResult(json)
         return AgentBrowser.json.decodeFromString<QueryResult>(normalized)
     }
+
+    fun pageJs(kind: PageKind, payload: PagePayload = PagePayload()): String {
+        val payloadJson = json.encodeToString(payload)
+        return "JSON.stringify(window.__agentBrowser.page('${kind.wire}',$payloadJson))"
+    }
+
+    fun parsePage(json: String): PageResult {
+        val normalized = normalizeJsEvalResult(json)
+        return AgentBrowser.json.decodeFromString<PageResult>(normalized)
+    }
 }
 
 private class SnapshotRenderer(

@@ -19,7 +19,7 @@ Key assertions covered in instrumentation test (offline assets):
 
 Artifacts:
   - Device frames:
-      /sdcard/Download/agent-browser-kotlin/e2e/frames/step-*.png
+      /sdcard/Download/agent-browser-kotlin/e2e/frames/run-<millis>-step-*.png
   - Local video (built from frames):
       adb_dumps\e2e\latest\e2e-latest.mp4
 
@@ -28,4 +28,3 @@ Perf/size evidence (from Gradle connected test logcat):
       app/build/outputs/androidTest-results/connected/debug/RTE-AL00 - 12/logcat-com.lsl.agent_browser_kotlin.WebViewE2eTest-snapshot_fill_click_resnapshot_sees_dom_change.txt
   - Observed:
       [STEP 7] stress snapshot jsonBytes=804 jsTimeMs=33
-

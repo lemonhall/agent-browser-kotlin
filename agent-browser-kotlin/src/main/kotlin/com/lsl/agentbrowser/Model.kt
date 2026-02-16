@@ -20,6 +20,8 @@ data class Meta(
 data class SnapshotStats(
     val nodesVisited: Int? = null,
     val nodesEmitted: Int? = null,
+    val domNodes: Int? = null,
+    val skippedHidden: Int? = null,
     val truncated: Boolean = false,
     val truncateReasons: List<String> = emptyList(),
     val jsTimeMs: Long? = null,
@@ -126,6 +128,42 @@ data class QueryResult(
     val kind: String? = null,
     val value: String? = null,
     val truncated: Boolean? = null,
+    val meta: Meta? = null,
+    val error: JsError? = null,
+)
+
+enum class PageKind(val wire: String) {
+    INFO("info"),
+    SCROLL("scroll"),
+    PRESS_KEY("pressKey"),
+}
+
+@Serializable
+data class PagePayload(
+    val x: Int? = null,
+    val y: Int? = null,
+    val deltaX: Int? = null,
+    val deltaY: Int? = null,
+    val behavior: String? = null,
+    val key: String? = null,
+)
+
+@Serializable
+data class PageViewport(
+    val width: Int? = null,
+    val height: Int? = null,
+)
+
+@Serializable
+data class PageResult(
+    val ok: Boolean,
+    val type: String,
+    val kind: String? = null,
+    val url: String? = null,
+    val title: String? = null,
+    val scrollX: Int? = null,
+    val scrollY: Int? = null,
+    val viewport: PageViewport? = null,
     val meta: Meta? = null,
     val error: JsError? = null,
 )
