@@ -80,6 +80,13 @@ class WebViewE2eTest {
             assertTrue("aria-hidden section should not appear", !render1.text.contains("Should Not Appear"))
             assertTrue("hidden action should not appear before toggling", !render1.text.contains("Hidden Action"))
 
+            val cookieAcceptRef = snapshot1.refs.values.firstOrNull { it.tag == "button" && it.name == "Accept cookies" }?.ref
+            assertNotNull("cookie accept button ref missing", cookieAcceptRef)
+            val cookieAcceptRaw = evalJs(webView, AgentBrowser.actionJs(cookieAcceptRef!!, ActionKind.CLICK))
+            val cookieAccept = AgentBrowser.parseAction(cookieAcceptRaw)
+            assertTrue(cookieAccept.ok)
+            stepDelay()
+
             val inputRef1 = snapshot1.refs.values.firstOrNull { it.tag == "input" }?.ref
             assertNotNull("input ref missing", inputRef1)
             val fillRaw = evalJs(webView, AgentBrowser.actionJs(inputRef1!!, ActionKind.FILL, FillPayload("hello")))
@@ -486,6 +493,204 @@ class WebViewE2eTest {
                 step = 5,
                 snapshotRaw = nav2SnapRaw,
                 snapshotText = nav2Render.text,
+            )
+            stepDelay()
+        }
+    }
+
+    @Test
+    fun click_blocked_by_cookie_banner_is_ai_friendly_then_dismiss_allows_click() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val downloadRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
+        val runPrefix = "run-${System.currentTimeMillis()}-cookie"
+
+        ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
+            lateinit var webView: WebView
+            scenario.onActivity { activity -> webView = activity.webView }
+
+            loadUrlAndWait(scenario, "file:///android_asset/e2e/complex.html")
+
+            clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 1)
+            stepDelay()
+
+            val snapRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val snap = AgentBrowser.parseSnapshot(snapRaw)
+            assertTrue(snap.ok)
+
+            val applyRef = snap.refs.values.firstOrNull { it.tag == "button" && it.name == "Apply" }?.ref
+            assertNotNull("Apply button ref missing", applyRef)
+            val acceptRef = snap.refs.values.firstOrNull { it.tag == "button" && it.name == "Accept cookies" }?.ref
+            assertNotNull("cookie accept button ref missing", acceptRef)
+
+            val blockedRaw = evalJs(webView, AgentBrowser.actionJs(applyRef!!, ActionKind.CLICK))
+            val blocked = AgentBrowser.parseAction(blockedRaw)
+            assertTrue(!blocked.ok)
+            val msg = blocked.error?.message ?: ""
+            assertTrue("expected 'blocked by another element' in message, actual=$msg", msg.contains("blocked by another element"))
+            assertTrue("expected 'modal or overlay' in message, actual=$msg", msg.contains("modal or overlay"))
+            assertTrue("expected 'cookie banners' in message, actual=$msg", msg.contains("cookie banners"))
+
+            scenario.onActivity { it.setSnapshotText("[COOKIE] blocked click message:\n$msg") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 2)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 2,
+                snapshotRaw = snapRaw,
+                snapshotText = "[COOKIE]\nblocked=$msg\n\n${AgentBrowser.renderSnapshot(snapRaw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true)).text}",
+            )
+            stepDelay()
+
+            val acceptRaw = evalJs(webView, AgentBrowser.actionJs(acceptRef!!, ActionKind.CLICK))
+            val accept = AgentBrowser.parseAction(acceptRaw)
+            assertTrue(accept.ok)
+            stepDelay()
+
+            val okRaw = evalJs(webView, AgentBrowser.actionJs(applyRef, ActionKind.CLICK))
+            val ok = AgentBrowser.parseAction(okRaw)
+            assertTrue(ok.ok)
+            stepDelay()
+
+            val afterRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val after = AgentBrowser.renderSnapshot(afterRaw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
+            assertTrue("expected status applied after click", after.text.contains("applied"))
+            scenario.onActivity { it.setSnapshotText("[COOKIE] after dismiss + apply\n\n${after.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 3)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 3,
+                snapshotRaw = afterRaw,
+                snapshotText = after.text,
+            )
+            stepDelay()
+        }
+    }
+
+    @Test
+    fun scroll_into_view_moves_page_and_allows_click() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val downloadRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
+        val runPrefix = "run-${System.currentTimeMillis()}-scrollIntoView"
+
+        ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
+            lateinit var webView: WebView
+            scenario.onActivity { activity -> webView = activity.webView }
+
+            loadUrlAndWait(scenario, "file:///android_asset/e2e/long.html")
+
+            clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 1)
+            stepDelay()
+
+            val info0Raw = evalJs(webView, AgentBrowser.pageJs(PageKind.INFO))
+            val info0 = AgentBrowser.parsePage(info0Raw)
+            assertTrue(info0.ok)
+
+            val snapRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = true)))
+            val snap = AgentBrowser.parseSnapshot(snapRaw)
+            assertTrue(snap.ok)
+            val bottomRef = snap.refs.values.firstOrNull { it.tag == "button" && it.name == "Bottom Action" }?.ref
+            assertNotNull("Bottom Action ref missing", bottomRef)
+
+            val sivRaw = evalJs(webView, AgentBrowser.actionJs(bottomRef!!, ActionKind.SCROLL_INTO_VIEW))
+            val siv = AgentBrowser.parseAction(sivRaw)
+            assertTrue(siv.ok)
+            stepDelay()
+
+            val info1Raw = evalJs(webView, AgentBrowser.pageJs(PageKind.INFO))
+            val info1 = AgentBrowser.parsePage(info1Raw)
+            assertTrue(info1.ok)
+            assertTrue("expected scrollY to increase after scroll_into_view", (info1.scrollY ?: 0) > (info0.scrollY ?: 0))
+
+            val clickRaw = evalJs(webView, AgentBrowser.actionJs(bottomRef, ActionKind.CLICK))
+            val click = AgentBrowser.parseAction(clickRaw)
+            assertTrue(click.ok)
+            stepDelay()
+
+            val afterRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val after = AgentBrowser.renderSnapshot(afterRaw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
+            assertTrue("expected bottom-clicked in pill", after.text.contains("bottom-clicked"))
+            scenario.onActivity { it.setSnapshotText("[SCROLL_INTO_VIEW] scrollY ${info0.scrollY} -> ${info1.scrollY}\n\n${after.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 2)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 2,
+                snapshotRaw = afterRaw,
+                snapshotText = after.text,
+            )
+            stepDelay()
+        }
+    }
+
+    @Test
+    fun repeated_structure_refs_are_unique_and_click_hits_correct_card() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val downloadRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
+        val runPrefix = "run-${System.currentTimeMillis()}-repeat"
+
+        ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
+            lateinit var webView: WebView
+            scenario.onActivity { activity -> webView = activity.webView }
+
+            loadUrlAndWait(scenario, "file:///android_asset/e2e/repeat.html")
+
+            clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 1)
+            stepDelay()
+
+            val snapRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val snap = AgentBrowser.parseSnapshot(snapRaw)
+            assertTrue(snap.ok)
+
+            val openRefs = snap.refs.values.filter { it.tag == "button" && it.name == "Open" }.mapNotNull { it.ref }
+            assertTrue("expected multiple Open buttons, got=${openRefs.size}", openRefs.size >= 6)
+            assertEquals("Open refs should all be unique", openRefs.toSet().size, openRefs.size)
+
+            val targetRef = openRefs[2]
+            val clickRaw = evalJs(webView, AgentBrowser.actionJs(targetRef, ActionKind.CLICK))
+            val click = AgentBrowser.parseAction(clickRaw)
+            assertTrue(click.ok)
+            stepDelay()
+
+            val afterRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val after = AgentBrowser.renderSnapshot(afterRaw, RenderOptions(maxCharsTotal = 8000, maxNodes = 320, maxDepth = 14, compact = true))
+            assertTrue("expected card 3 opened marker", after.text.contains("opened:3"))
+            assertTrue("expected other cards not opened:1", !after.text.contains("opened:1"))
+            assertTrue("expected other cards not opened:2", !after.text.contains("opened:2"))
+
+            scenario.onActivity { it.setSnapshotText("[REPEAT] clicked 3rd Open ref=$targetRef\n\n${after.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 2)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 2,
+                snapshotRaw = afterRaw,
+                snapshotText = after.text,
             )
             stepDelay()
         }

@@ -10,6 +10,16 @@ object AgentBrowser {
         encodeDefaults = true
     }
 
+    private fun normalizeRefInput(raw: String): String {
+        var s = raw.trim()
+        if (s.startsWith("[ref=") && s.endsWith("]") && s.length > 6) {
+            s = s.substring(5, s.length - 1).trim()
+        }
+        if (s.startsWith("@")) s = s.substring(1).trim()
+        if (s.length >= 4 && s.substring(0, 4).lowercase() == "ref=") s = s.substring(4).trim()
+        return s
+    }
+
     fun getScript(): String {
         val stream = AgentBrowser::class.java.classLoader.getResourceAsStream("agent-browser.js")
             ?: error("Missing resource: agent-browser.js")
@@ -49,7 +59,8 @@ object AgentBrowser {
             is FillPayload -> json.encodeToString(payload)
             is SelectPayload -> json.encodeToString(payload)
         }
-        val refEscaped = ref.replace("\\", "\\\\").replace("'", "\\'")
+        val normalizedRef = normalizeRefInput(ref)
+        val refEscaped = normalizedRef.replace("\\", "\\\\").replace("'", "\\'")
         return "JSON.stringify(window.__agentBrowser.action('$refEscaped','$kindString',$payloadJson))"
     }
 
@@ -108,7 +119,8 @@ object AgentBrowser {
 
     fun queryJs(ref: String, kind: QueryKind, payload: QueryPayload = QueryPayload()): String {
         val payloadJson = json.encodeToString(payload)
-        val refEscaped = ref.replace("\\", "\\\\").replace("'", "\\'")
+        val normalizedRef = normalizeRefInput(ref)
+        val refEscaped = normalizedRef.replace("\\", "\\\\").replace("'", "\\'")
         return "JSON.stringify(window.__agentBrowser.query('$refEscaped','${kind.wire}',$payloadJson))"
     }
 

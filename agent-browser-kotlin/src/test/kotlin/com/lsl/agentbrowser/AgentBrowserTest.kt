@@ -197,6 +197,71 @@ class AgentBrowserTest {
     }
 
     @Test
+    fun renderSnapshot_truncatesAtMaxDepth() {
+        val snapshotJson =
+            """
+            {
+              "ok": true,
+              "type": "snapshot",
+              "meta": { "url": "https://example.com", "title": "Depth", "ts": 1 },
+              "stats": { "nodesVisited": 10, "nodesEmitted": 10, "truncated": false, "truncateReasons": [] },
+              "refs": {},
+              "tree": {
+                "tag":"body",
+                "role":"document",
+                "children": [
+                  { "tag":"div", "role":"generic", "children": [
+                    { "tag":"div", "role":"generic", "children": [
+                      { "tag":"div", "role":"generic", "children": [
+                        { "tag":"div", "role":"generic", "children": [] }
+                      ]}
+                    ]}
+                  ]}
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val rendered = AgentBrowser.renderSnapshot(
+            snapshotJson,
+            RenderOptions(maxCharsTotal = 8000, maxNodes = 200, maxDepth = 2, compact = true, format = OutputFormat.PLAIN_TEXT_TREE),
+        )
+        assertTrue(rendered.stats.truncated)
+        assertTrue(rendered.stats.truncateReasons.contains("maxDepth"))
+        assertContains(rendered.text, "maxDepth")
+    }
+
+    @Test
+    fun renderSnapshot_compactPrunesEmptyStructuralNodes() {
+        val snapshotJson =
+            """
+            {
+              "ok": true,
+              "type": "snapshot",
+              "meta": { "url": "https://example.com", "title": "Compact", "ts": 1 },
+              "stats": { "nodesVisited": 3, "nodesEmitted": 3, "truncated": false, "truncateReasons": [] },
+              "refs": {},
+              "tree": {
+                "tag":"body",
+                "role":"document",
+                "children": [
+                  { "tag":"div", "role":"generic", "children": [
+                    { "tag":"span", "role":"generic", "children": [] }
+                  ]}
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val rendered = AgentBrowser.renderSnapshot(
+            snapshotJson,
+            RenderOptions(maxCharsTotal = 8000, maxNodes = 200, maxDepth = 12, compact = true, format = OutputFormat.PLAIN_TEXT_TREE),
+        )
+        assertTrue(!rendered.stats.truncated)
+        assertTrue(rendered.text.lines().none { it.trimStart().startsWith("- ") })
+    }
+
+    @Test
     fun parseAction_successAndRefNotFound_areBothStructured() {
         val okJson =
             """
@@ -238,6 +303,21 @@ class AgentBrowserTest {
 
         val check = AgentBrowser.actionJs("e2", ActionKind.CHECK)
         assertContains(check, "'check'")
+    }
+
+    @Test
+    fun actionAndQueryJs_normalizeRefInputFormats() {
+        val a1 = AgentBrowser.actionJs("@e1", ActionKind.CLICK)
+        assertContains(a1, "action('e1'")
+
+        val a2 = AgentBrowser.actionJs("ref=e2", ActionKind.CLICK)
+        assertContains(a2, "action('e2'")
+
+        val a3 = AgentBrowser.actionJs("[ref=e3]", ActionKind.CLICK)
+        assertContains(a3, "action('e3'")
+
+        val q1 = AgentBrowser.queryJs("@e9", QueryKind.TEXT, QueryPayload(limitChars = 10))
+        assertContains(q1, "query('e9'")
     }
 
     @Test

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>agent-browser-kotlin Long Scroll Fixture</title>
+    <style>
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; }
+      header { position: sticky; top: 0; z-index: 1; padding: 12px 14px; background: #0b1220; color: #e5e7eb; }
+      main { padding: 14px; }
+      .row { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+      button { padding: 10px 12px; border: 1px solid #1d4ed8; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; }
+      .muted { color:#64748b; font-size: 12px; }
+      .spacer { height: 1200px; background: linear-gradient(180deg, rgba(99,102,241,0.06), rgba(99,102,241,0)); border: 1px dashed rgba(148,163,184,0.55); border-radius: 12px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; margin: 12px 0; background: white; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <strong>Long Scroll Fixture</strong>
+        <span id="pill" class="muted">ready</span>
+      </div>
+    </header>
+    <main role="main">
+      <div class="card" aria-label="Top Card">
+        <div class="muted">Use action(scroll_into_view) to reach the bottom action.</div>
+        <button id="btnTop" onclick="document.getElementById('pill').textContent='top-clicked'">Top Action</button>
+      </div>
+
+      <div class="spacer" aria-label="Spacer Region">
+        <div class="muted" style="padding: 10px 12px;">(lots of content...)</div>
+      </div>
+
+      <div class="card" id="bottomCard" aria-label="Bottom Card">
+        <h2>Bottom Card</h2>
+        <div class="muted">This button starts off-screen on most viewports.</div>
+        <button id="btnBottom" onclick="document.getElementById('pill').textContent='bottom-clicked'">Bottom Action</button>
+      </div>
+    </main>
+  </body>
+</html>
+

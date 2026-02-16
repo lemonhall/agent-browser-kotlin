@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>agent-browser-kotlin Repeated Structure Fixture</title>
+    <style>
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; }
+      header { padding: 12px 14px; background: #111827; color: #e5e7eb; }
+      main { padding: 14px; }
+      .grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: white; }
+      .row { display:flex; gap: 10px; align-items:center; justify-content: space-between; }
+      button { padding: 8px 10px; border: 1px solid #1d4ed8; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; }
+      .muted { color:#64748b; font-size: 12px; }
+      .status { font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <strong>Repeat Fixture</strong>
+        <span class="muted">multiple identical buttons; refs must stay unique</span>
+      </div>
+    </header>
+    <main role="main">
+      <div class="grid" id="grid"></div>
+    </main>
+    <script>
+      (function () {
+        var grid = document.getElementById('grid');
+        for (var i = 1; i <= 8; i++) {
+          var card = document.createElement('div');
+          card.className = 'card';
+          card.id = 'card-' + i;
+
+          var title = document.createElement('h3');
+          title.textContent = 'Item ' + i;
+
+          var row = document.createElement('div');
+          row.className = 'row';
+
+          var status = document.createElement('span');
+          status.className = 'status';
+          status.textContent = 'state: closed';
+
+          var btn = document.createElement('button');
+          btn.textContent = 'Open';
+          btn.onclick = function (ev) {
+            var el = ev && ev.currentTarget ? ev.currentTarget : null;
+            var p = el;
+            while (p && p.nodeType === 1 && (!p.id || p.id.indexOf('card-') !== 0)) p = p.parentElement;
+            if (!p) return;
+            var idx = p.id.split('-')[1] || '?';
+            var s = p.querySelector('.status');
+            if (s) s.textContent = 'state: opened:' + idx;
+          };
+
+          row.appendChild(status);
+          row.appendChild(btn);
+
+          var desc = document.createElement('div');
+          desc.className = 'muted';
+          desc.textContent = 'This card has the same structure as others.';
+
+          card.appendChild(title);
+          card.appendChild(desc);
+          card.appendChild(row);
+          grid.appendChild(card);
+        }
+      })();
+    </script>
+  </body>
+</html>
+

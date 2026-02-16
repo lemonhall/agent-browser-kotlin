@@ -285,6 +285,48 @@
     return base;
   }
 
+  function looksLikeCookieBanner(el) {
+    if (!el || el.nodeType !== 1) return false;
+    function haystack(node) {
+      var id = '';
+      var cls = '';
+      var label = '';
+      var txt = '';
+      try { id = safeString(node.id); } catch (_e0) { id = ''; }
+      try { cls = safeString(node.className); } catch (_e1) { cls = ''; }
+      try { label = safeString(attr(node, 'aria-label')); } catch (_e2) { label = ''; }
+      try { txt = safeString(node.innerText || node.textContent || ''); } catch (_e3) { txt = ''; }
+      return (id + ' ' + cls + ' ' + label + ' ' + txt).toLowerCase();
+    }
+    var node = el;
+    for (var i = 0; i < 6 && node; i++) {
+      var h = haystack(node);
+      if (h.indexOf('cookie') >= 0 || h.indexOf('consent') >= 0 || h.indexOf('gdpr') >= 0) return true;
+      node = node.parentElement;
+    }
+    return false;
+  }
+
+  function clickBlockedByAnotherElement(targetEl) {
+    if (!targetEl || targetEl.nodeType !== 1) return null;
+    try {
+      if (targetEl.scrollIntoView) targetEl.scrollIntoView({ block: 'center' });
+    } catch (_e0) {}
+    var rect = null;
+    try { rect = targetEl.getBoundingClientRect ? targetEl.getBoundingClientRect() : null; } catch (_e1) { rect = null; }
+    if (!rect) return null;
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var topEl = null;
+    try { topEl = document.elementFromPoint ? document.elementFromPoint(cx, cy) : null; } catch (_e2) { topEl = null; }
+    if (!topEl) return null;
+    if (topEl === targetEl) return null;
+    try {
+      if (targetEl.contains && targetEl.contains(topEl)) return null;
+    } catch (_e3) {}
+    return topEl;
+  }
+
   function dispatchMouseClick(el) {
     try {
       if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
@@ -337,14 +379,20 @@
     try { window.scrollBy(x, y); } catch (_e1) {
       try { window.scrollBy({ left: x, top: y, behavior: 'auto' }); } catch (_e2) {}
     }
-    return { success: true, scrollX: window.scrollX || 0, scrollY: window.scrollY || 0 };
+    var sx = 0;
+    var sy = 0;
+    try { sx = window.scrollX || 0; sy = window.scrollY || 0; } catch (_e3) { sx = 0; sy = 0; }
+    return { success: true, scrollX: Math.round(sx), scrollY: Math.round(sy) };
   }
 
   function pageScrollToXY(x, y) {
     try { window.scrollTo(x, y); } catch (_e1) {
       try { window.scrollTo({ left: x, top: y, behavior: 'auto' }); } catch (_e2) {}
     }
-    return { success: true, scrollX: window.scrollX || 0, scrollY: window.scrollY || 0 };
+    var sx = 0;
+    var sy = 0;
+    try { sx = window.scrollX || 0; sy = window.scrollY || 0; } catch (_e3) { sx = 0; sy = 0; }
+    return { success: true, scrollX: Math.round(sx), scrollY: Math.round(sy) };
   }
 
   function pageGetUrl() { return safeString(location && location.href); }
@@ -509,6 +557,14 @@
       if (!el) return makeErr('action', { ref: r, action: k }, 'ref_not_found', 'ref ' + r + ' not found');
 
       if (k === 'click') {
+        var blocker = clickBlockedByAnotherElement(el);
+        if (blocker) {
+          var msg = 'blocked by another element (modal or overlay)';
+          if (looksLikeCookieBanner(blocker)) {
+            msg += '; try dismissing cookie banners';
+          }
+          return makeErr('action', { ref: r, action: k }, 'element_blocked', msg);
+        }
         dispatchMouseClick(el);
         return makeOk('action', { ref: r, action: k });
       }
@@ -682,8 +738,8 @@
           kind: k,
           url: pageGetUrl(),
           title: pageGetTitle(),
-          scrollX: sx,
-          scrollY: sy,
+          scrollX: Math.round(sx),
+          scrollY: Math.round(sy),
           viewport: vp,
         });
       }
@@ -709,7 +765,7 @@
         var sx2 = 0;
         var sy2 = 0;
         try { sx2 = window.scrollX || 0; sy2 = window.scrollY || 0; } catch (_e5) {}
-        return makeOk('page', { kind: k, scrollX: sx2, scrollY: sy2 });
+        return makeOk('page', { kind: k, scrollX: Math.round(sx2), scrollY: Math.round(sy2) });
       }
 
       if (k === 'pressKey') {
