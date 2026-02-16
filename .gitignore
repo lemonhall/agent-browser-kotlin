@@ -25,6 +25,7 @@ Desktop.ini
 .kotlin/
 **/.kotlin/
 **/build/
+**/bin/
 
 # Local Android SDK path
 local.properties
