@@ -16,6 +16,10 @@ Desktop.ini
 *.ipr
 *.iws
 **/out/
+.vscode/
+.classpath
+.project
+.settings/
 
 # ------------------------------------------------------------
 # Gradle / Kotlin
@@ -26,6 +30,7 @@ Desktop.ini
 **/.kotlin/
 **/build/
 **/bin/
+*.hprof
 
 # Local Android SDK path
 local.properties

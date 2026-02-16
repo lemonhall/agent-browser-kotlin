@@ -34,3 +34,22 @@ v5 已把 Snapshot 的角色集合/Ref 规则、cursor-interactive gate、name/a
 - JVM：`.\gradlew :agent-browser-kotlin:test --no-daemon`
 - 真机：`.\gradlew :app:connectedAndroidTest --no-daemon`
 - Evidence：`docs/evidence/2026-02-16-v6-connectedAndroidTest.txt`
+
+---
+
+# v6 对齐（完成回填）
+
+## v6 完成情况（结果回填）
+
+- ✅ Kotlin API（6.x）
+  - 新增 `OutputFormat(PLAIN_TEXT_TREE/JSON)` 与 `RenderOptions.format`
+  - `AgentBrowser.renderSnapshot(json, options)` 收敛为单入口：返回 `text + refs + stats + snapshot`
+- ✅ Docs
+  - 仓库执行口径统一为 `docs/prd/archive/PRD-V4.md`，移除过期/错误的 PRD 路径引用
+
+证据：
+- `docs/evidence/2026-02-16-v6-connectedAndroidTest.txt`
+
+## v6 仍未完全对齐（剩余差异）
+
+- Kotlin 侧 `OutputFormat.JSON` 当前为“结构化返回（snapshot+refs+stats）+ text 为空”的最小形态；若后续需要“渲染产物本身为 JSON 字符串”可再扩展。

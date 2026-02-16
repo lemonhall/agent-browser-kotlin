@@ -25,6 +25,8 @@ webView.evaluateJavascript(
 ) { raw ->
   val snapshot = AgentBrowser.parseSnapshot(raw)
   val rendered = AgentBrowser.renderSnapshot(raw, RenderOptions(maxCharsTotal = 8000))
+  val text = rendered.text
+  val refs = rendered.refs
 }
 ```
 
@@ -49,6 +51,6 @@ webView.evaluateJavascript(AgentBrowser.actionJs(ref, ActionKind.SELECT, SelectP
 - Android 真机/模拟器 E2E：`.\gradlew :app:connectedAndroidTest --no-daemon`
 
 E2E 人类可感知证据：
-- 设备端截图帧：`/sdcard/Download/agent-browser-kotlin/e2e/frames/step-*.png`
+- 设备端截图帧：`/sdcard/Download/agent-browser-kotlin/e2e/frames/run-*/run-*-step-*.png`
 - 本机拉取并合成 mp4：`pwsh -File .\scripts\pull-e2e-video.ps1`
-- 证据摘要：`docs/evidence/2026-02-16-v2-connectedAndroidTest.txt`
+- 证据摘要：`docs/evidence/`
