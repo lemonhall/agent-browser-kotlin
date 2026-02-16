@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>agent-browser-kotlin E2E Fixture</title>
+    <style>
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; }
+      header { padding: 12px 14px; background: #0f172a; color: #e2e8f0; }
+      nav a { color: #93c5fd; margin-right: 12px; text-decoration: none; }
+      main { padding: 14px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin: 12px 0; }
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      input[type="text"] { padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 8px; min-width: 220px; }
+      button { padding: 10px 12px; border: 1px solid #1d4ed8; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; }
+      button.secondary { background: #111827; border-color: #111827; }
+      ul { padding-left: 18px; }
+      .muted { color: #64748b; }
+      .hidden { display:none; }
+      [aria-hidden="true"] { display:none; }
+      .pill { display:inline-block; padding:2px 8px; border-radius: 999px; background:#eef2ff; color:#3730a3; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <strong aria-label="SiteName">Agent Fixture</strong>
+        <span class="pill" id="statusPill">ready</span>
+      </div>
+      <nav aria-label="TopNav">
+        <a href="#home" role="link">Home</a>
+        <a href="#docs" role="link">Docs</a>
+        <a href="#pricing" role="link">Pricing</a>
+      </nav>
+    </header>
+
+    <main role="main">
+      <section class="card" aria-label="Search Section">
+        <h1 id="h1Title">Offline Complex Fixture</h1>
+        <p class="muted">用于 WebView 离线 E2E：包含表单、列表、隐藏元素、aria、动态 DOM。</p>
+
+        <div class="row">
+          <label for="q" class="muted">Query:</label>
+          <input id="q" type="text" placeholder="Search" aria-label="Search Input" />
+          <button id="btnApply" onclick="apply()">Apply</button>
+          <button id="btnToggle" class="secondary" onclick="toggleHidden()">Toggle Hidden</button>
+        </div>
+
+        <div id="result" class="muted" aria-label="Result Text">result: (empty)</div>
+      </section>
+
+      <section class="card" aria-label="List Section">
+        <h2>Items</h2>
+        <ul id="items">
+          <li>alpha</li>
+          <li>bravo</li>
+          <li>charlie</li>
+        </ul>
+        <button id="btnAdd" onclick="addItem()">Add Item</button>
+      </section>
+
+      <section class="card hidden" id="hiddenBox" aria-label="Hidden Box">
+        <h2>Hidden Box</h2>
+        <p>This section is toggled by JS.</p>
+        <button id="btnHidden" onclick="document.getElementById('statusPill').textContent='hidden-clicked'">Hidden Action</button>
+      </section>
+
+      <section class="card" aria-hidden="true" aria-label="Aria Hidden">
+        <h2>Should Not Appear</h2>
+        <button id="btnAriaHidden">Nope</button>
+      </section>
+    </main>
+
+    <script>
+      function apply() {
+        var v = document.getElementById('q').value;
+        document.getElementById('result').textContent = 'result: ' + v;
+        document.getElementById('statusPill').textContent = 'applied';
+        document.getElementById('h1Title').textContent = 'Applied: ' + (v || '(empty)');
+      }
+      function addItem() {
+        var v = document.getElementById('q').value || ('item-' + Math.floor(Math.random() * 1000));
+        var li = document.createElement('li');
+        li.textContent = v;
+        document.getElementById('items').appendChild(li);
+        document.getElementById('statusPill').textContent = 'added';
+      }
+      function toggleHidden() {
+        var el = document.getElementById('hiddenBox');
+        if (el.classList.contains('hidden')) el.classList.remove('hidden'); else el.classList.add('hidden');
+        document.getElementById('statusPill').textContent = el.classList.contains('hidden') ? 'hidden-off' : 'hidden-on';
+      }
+    </script>
+  </body>
+</html>
+
