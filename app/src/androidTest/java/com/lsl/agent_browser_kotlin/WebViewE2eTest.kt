@@ -215,6 +215,54 @@ class WebViewE2eTest {
             stepDelay()
             assertTrue("status should reflect hidden click", render8.text.contains("hidden-clicked"))
 
+            // v5: PRD-V4 alignment checks (roles/refs + cursor-interactive gate + name via aria-labelledby + stats naming)
+            val v5SnapInteractiveOnlyRaw = evalJs(
+                webView,
+                AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = true, cursorInteractive = false)),
+            )
+            val v5SnapInteractiveOnly = AgentBrowser.parseSnapshot(v5SnapInteractiveOnlyRaw)
+            assertTrue(v5SnapInteractiveOnly.ok)
+            assertTrue(
+                "interactiveOnly=true should still include CONTENT refs when name exists (expected h1 ref)",
+                v5SnapInteractiveOnly.refs.values.any { it.tag == "h1" },
+            )
+            assertTrue(
+                "aria-labelledby should contribute to name (expected h2 name from #lblH2)",
+                v5SnapInteractiveOnly.refs.values.any { it.tag == "h2" && it.name == "Labelled Heading Text" },
+            )
+            assertTrue(
+                "cursorInteractive=false should not include Cursor Interactive Box",
+                v5SnapInteractiveOnly.refs.values.none { (it.name ?: "").contains("Cursor Interactive Box") },
+            )
+
+            val v5SnapCursorRaw = evalJs(
+                webView,
+                AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = true, cursorInteractive = true)),
+            )
+            val v5SnapCursor = AgentBrowser.parseSnapshot(v5SnapCursorRaw)
+            assertTrue(v5SnapCursor.ok)
+            val cursorBoxRef = v5SnapCursor.refs.values.firstOrNull {
+                it.role == "focusable" && (it.name ?: "").contains("Cursor Interactive Box")
+            }?.ref
+            assertNotNull("cursorInteractive=true should include Cursor Interactive Box ref", cursorBoxRef)
+            val clickCursorBoxRaw = evalJs(webView, AgentBrowser.actionJs(cursorBoxRef!!, ActionKind.CLICK))
+            val clickCursorBox = AgentBrowser.parseAction(clickCursorBoxRaw)
+            assertTrue(clickCursorBox.ok)
+
+            val v5AfterCursorRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val v5AfterCursor = AgentBrowser.parseSnapshot(v5AfterCursorRaw)
+            assertTrue(v5AfterCursor.ok)
+            assertNotNull("stats.visitedNodes should be present (PRD naming)", v5AfterCursor.stats?.visitedNodes)
+            assertNotNull("stats.emittedNodes should be present (PRD naming)", v5AfterCursor.stats?.emittedNodes)
+            val v5AfterCursorRender = AgentBrowser.renderSnapshot(
+                v5AfterCursorRaw,
+                RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
+            )
+            assertTrue("after cursorInteractive click, h1 should change", v5AfterCursorRender.text.contains("ci-clicked"))
+            scenario.onActivity { it.setSnapshotText("[STEP v5] cursorInteractive + content refs OK\n\n${v5AfterCursorRender.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 13)
+            stepDelay()
+
             loadUrlAndWait(scenario, "file:///android_asset/e2e/stress.html")
             stepDelay()
 

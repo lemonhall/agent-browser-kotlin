@@ -20,6 +20,10 @@ data class Meta(
 data class SnapshotStats(
     val nodesVisited: Int? = null,
     val nodesEmitted: Int? = null,
+    @SerialName("visitedNodes")
+    val visitedNodes: Int? = null,
+    @SerialName("emittedNodes")
+    val emittedNodes: Int? = null,
     val domNodes: Int? = null,
     val skippedHidden: Int? = null,
     val truncated: Boolean = false,
@@ -34,6 +38,9 @@ data class SnapshotRef(
     val role: String? = null,
     val name: String? = null,
     val attrs: Map<String, String> = emptyMap(),
+    val interactive: Boolean? = null,
+    val cursorInteractive: Boolean? = null,
+    val level: Int? = null,
     val path: String? = null,
 )
 
@@ -44,7 +51,10 @@ data class SnapshotNode(
     val role: String? = null,
     val name: String? = null,
     val text: String? = null,
+    val level: Int? = null,
     val attrs: Map<String, String> = emptyMap(),
+    val interactive: Boolean? = null,
+    val cursorInteractive: Boolean? = null,
     val children: List<SnapshotNode> = emptyList(),
 )
 
@@ -173,11 +183,33 @@ data class RenderOptions(
     val maxNodes: Int = 200,
     val maxDepth: Int = 12,
     val compact: Boolean = true,
+    val format: OutputFormat = OutputFormat.PLAIN_TEXT_TREE,
 )
+
+enum class OutputFormat {
+    PLAIN_TEXT_TREE,
+    JSON,
+}
 
 data class RenderResult(
     val text: String,
     val truncated: Boolean,
     val truncateReasons: List<String>,
     val nodesRendered: Int,
+)
+
+data class SnapshotRenderStats(
+    val js: SnapshotStats? = null,
+    val charsEmitted: Int,
+    val nodesRendered: Int,
+    val truncated: Boolean,
+    val truncateReasons: List<String>,
+)
+
+data class SnapshotRenderResult(
+    val format: OutputFormat,
+    val text: String,
+    val refs: Map<String, SnapshotRef>,
+    val stats: SnapshotRenderStats,
+    val snapshot: SnapshotResult,
 )

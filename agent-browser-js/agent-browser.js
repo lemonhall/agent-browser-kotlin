@@ -53,43 +53,127 @@
     return v == null ? null : String(v);
   }
 
+  function makeSet(list) {
+    var out = {};
+    for (var i = 0; i < list.length; i++) out[list[i]] = true;
+    return out;
+  }
+
+  function has(setObj, key) {
+    return !!(setObj && key && setObj[key]);
+  }
+
+  // Align PRD-V4 5.2.3 role sets (agent-browser snapshot.ts style).
+  var INTERACTIVE_ROLES = makeSet([
+    'button', 'link', 'textbox', 'checkbox', 'radio',
+    'combobox', 'listbox', 'menuitem', 'menuitemcheckbox',
+    'menuitemradio', 'option', 'searchbox', 'slider',
+    'spinbutton', 'switch', 'tab', 'treeitem',
+    // cursor-interactive synthetic roles (PRD-V4 5.2.3)
+    'clickable', 'focusable',
+  ]);
+
+  var CONTENT_ROLES = makeSet([
+    'heading', 'cell', 'gridcell', 'columnheader', 'rowheader',
+    'listitem', 'article', 'region', 'main', 'navigation',
+    'img', 'progressbar', 'meter',
+  ]);
+
+  var STRUCTURAL_ROLES = makeSet([
+    'generic', 'group', 'list', 'table', 'row', 'rowgroup',
+    'grid', 'treegrid', 'menu', 'menubar', 'toolbar',
+    'tablist', 'tree', 'directory', 'document', 'application',
+    'presentation', 'none', 'form', 'banner', 'contentinfo',
+    'complementary', 'dialog',
+  ]);
+
+  // NOTE: keep <a> interactive only when it has href (see computeRole + isStandardInteractive).
+  var NATIVE_INTERACTIVE_TAGS = makeSet(['button', 'input', 'select', 'textarea', 'details', 'summary']);
+
   function computeRole(tag, el) {
     var explicit = attr(el, 'role');
     if (explicit) return explicit;
 
-    if (tag === 'a') return 'link';
+    // PRD-V4 5.2.2 implicit roles
+    if (tag === 'a') return attr(el, 'href') ? 'link' : 'generic';
     if (tag === 'button') return 'button';
     if (tag === 'textarea') return 'textbox';
     if (tag === 'select') return 'combobox';
     if (tag === 'img') return 'img';
     if (tag === 'form') return 'form';
+    if (tag === 'table') return 'table';
+    if (tag === 'tr') return 'row';
+    if (tag === 'td') return 'cell';
+    if (tag === 'th') return 'columnheader';
     if (tag === 'nav') return 'navigation';
     if (tag === 'main') return 'main';
     if (tag === 'header') return 'banner';
     if (tag === 'footer') return 'contentinfo';
+    if (tag === 'article') return 'article';
+    if (tag === 'section') return 'region';
+    if (tag === 'aside') return 'complementary';
+    if (tag === 'dialog') return 'dialog';
+    if (tag === 'details') return 'group';
+    if (tag === 'summary') return 'button';
+    if (tag === 'option') return 'option';
+    if (tag === 'progress') return 'progressbar';
+    if (tag === 'meter') return 'meter';
     if (tag === 'ul' || tag === 'ol') return 'list';
     if (tag === 'li') return 'listitem';
     if (tag === 'input') {
       var type = (attr(el, 'type') || 'text').toLowerCase();
       if (type === 'search') return 'searchbox';
       if (type === 'email' || type === 'text' || type === 'password' || type === 'tel' || type === 'url') return 'textbox';
+      if (type === 'number') return 'spinbutton';
       if (type === 'checkbox') return 'checkbox';
       if (type === 'radio') return 'radio';
-      if (type === 'submit' || type === 'button' || type === 'reset') return 'button';
+      if (type === 'submit' || type === 'reset' || type === 'button') return 'button';
+      if (type === 'range') return 'slider';
       return 'textbox';
     }
     if (tag && tag.length === 2 && tag[0] === 'h') return 'heading';
     return 'generic';
   }
 
+  function headingLevel(tag) {
+    if (!tag || tag.length !== 2 || tag[0] !== 'h') return null;
+    var n = parseInt(tag[1], 10);
+    return (n >= 1 && n <= 6) ? n : null;
+  }
+
+  function computeNameFromLabelledBy(el, maxLen) {
+    var v = attr(el, 'aria-labelledby');
+    if (!v) return null;
+    var ids = v.split(/\s+/);
+    var parts = [];
+    for (var i = 0; i < ids.length; i++) {
+      var id = safeString(ids[i]).trim();
+      if (!id) continue;
+      try {
+        var target = document.getElementById(id);
+        if (!target) continue;
+        var t = safeString(target.innerText || target.textContent || '').trim();
+        if (t) parts.push(t);
+      } catch (_e0) {}
+    }
+    if (parts.length === 0) return null;
+    return clampString(parts.join(' '), maxLen);
+  }
+
   function computeName(el, tag, role, maxLen) {
     var ariaLabel = attr(el, 'aria-label');
     if (ariaLabel) return clampString(ariaLabel, maxLen);
+
+    var labelledBy = computeNameFromLabelledBy(el, maxLen);
+    if (labelledBy) return labelledBy;
 
     if (role === 'img') {
       var alt = attr(el, 'alt');
       if (alt) return clampString(alt, maxLen);
     }
+
+    var title = attr(el, 'title');
+    if (title) return clampString(title, maxLen);
 
     var placeholder = attr(el, 'placeholder');
     if ((role === 'textbox' || role === 'searchbox') && placeholder) return clampString(placeholder, maxLen);
@@ -103,24 +187,57 @@
     return clampString(text, maxLen);
   }
 
-  function isInteractive(el, tag, role, cursorInteractive) {
-    if (role === 'button' || role === 'link' || role === 'checkbox' || role === 'radio' || role === 'combobox' || role === 'textbox' || role === 'searchbox') return true;
+  function isStandardInteractive(el, tag, role) {
+    if (has(INTERACTIVE_ROLES, role)) return true;
     if (tag === 'a' && !!attr(el, 'href')) return true;
-    if (tag === 'input' || tag === 'select' || tag === 'textarea' || tag === 'button') return true;
-    if (attr(el, 'onclick') != null) return true;
-    var tabindex = attr(el, 'tabindex');
-    if (tabindex != null && tabindex !== '-1') return true;
-    if (cursorInteractive) {
-      try {
-        var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
-        if (style && style.cursor === 'pointer') return true;
-      } catch (_e) {}
-    }
+    if (has(NATIVE_INTERACTIVE_TAGS, tag)) return true;
     return false;
   }
 
+  // PRD-V4 5.2.5: only active when cursorInteractive=true; skip interactive roles and native tags.
+  function isCursorInteractiveCandidate(el, role, tag) {
+    if (has(INTERACTIVE_ROLES, role)) return false;
+    if (has(NATIVE_INTERACTIVE_TAGS, tag)) return false;
+
+    var hasCursorPointer = false;
+    try {
+      var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+      hasCursorPointer = !!(style && style.cursor === 'pointer');
+    } catch (_e0) {}
+
+    var hasOnClick = false;
+    try {
+      hasOnClick = (el && el.hasAttribute && el.hasAttribute('onclick')) || (el && el.onclick != null);
+    } catch (_e1) {}
+
+    var tabindex = attr(el, 'tabindex');
+    var hasTabIndex = tabindex != null && tabindex !== '-1';
+
+    return hasCursorPointer || hasOnClick || hasTabIndex;
+  }
+
+  function computeDirectText(el, maxLen) {
+    var parts = [];
+    try {
+      var nodes = el.childNodes || [];
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        if (!n || n.nodeType !== 3) continue;
+        var t = safeString(n.nodeValue);
+        if (t && t.trim()) parts.push(t);
+      }
+    } catch (_e0) {
+      parts = [];
+    }
+    if (parts.length === 0) return null;
+    var joined = parts.join(' ');
+    var clamped = clampString(joined, maxLen);
+    return clamped || null;
+  }
+
   function pickAttrs(el, maxValueLen) {
-    var whitelist = ['href', 'name', 'type', 'value', 'placeholder', 'aria-label', 'role', 'alt'];
+    // PRD-V4 5.2.1 whitelist (+ title/alt 作为 name 计算辅助仍保留在 name 字段中)
+    var whitelist = ['href', 'name', 'type', 'value', 'placeholder', 'src', 'action', 'method'];
     var out = {};
     for (var i = 0; i < whitelist.length; i++) {
       var k = whitelist[i];
@@ -293,46 +410,34 @@
         }
 
         var tag = (el.tagName || '').toLowerCase();
-        var role = computeRole(tag, el);
-        var interactive = isInteractive(el, tag, role, cursorInteractive);
+        var baseRole = computeRole(tag, el);
+        var standardInteractive = isStandardInteractive(el, tag, baseRole);
+        var cursorCandidate = cursorInteractive && isCursorInteractiveCandidate(el, baseRole, tag);
 
-        var isContent =
-          role === 'heading' ||
-          role === 'img' ||
-          tag === 'p' ||
-          role === 'listitem' ||
-          role === 'list';
+        var effectiveRole = baseRole;
+        if (cursorCandidate) {
+          var tabindex = attr(el, 'tabindex');
+          effectiveRole = (tabindex != null && tabindex !== '-1') ? 'focusable' : 'clickable';
+        }
 
-        var includeNode = interactive || (!interactiveOnly && (isContent || role === 'main' || role === 'navigation'));
+        var interactive = standardInteractive || cursorCandidate;
+        var isContent = has(CONTENT_ROLES, effectiveRole);
+
         var name = null;
-        if (interactive || (!interactiveOnly && isContent)) {
-          name = computeName(el, tag, role, maxTextPerNode);
-        }
-        if (!includeNode) {
-          // Even if we don't include this node, its descendants may contain interactive/content.
-          var keptChildren = [];
-          var kids = el.children || [];
-          for (var i = 0; i < kids.length; i++) {
-            var childNode = walk(kids[i], depth + 1);
-            if (childNode) keptChildren.push(childNode);
-            if (stats.truncated) break;
-          }
-          if (keptChildren.length === 0) return null;
-          return { tag: tag, role: role, name: name || null, children: keptChildren };
+        if (interactive || isContent) {
+          name = computeName(el, tag, effectiveRole, maxTextPerNode);
         }
 
-        var ref = null;
-        var shouldRef = interactive || (!interactiveOnly && isContent);
-        if (shouldRef) {
-          ref = 'e' + refSeq++;
-          assignRef(el, ref);
-          refs[ref] = {
-            ref: ref,
-            tag: tag,
-            role: role,
-            name: name || null,
-            attrs: pickAttrs(el, maxAttrValueLen),
-          };
+        var text = null;
+        // PRD-V4 5.2.1: text is direct text children; keep for non-interactive structural leaves when interactiveOnly=false.
+        text = computeDirectText(el, maxTextPerNode);
+
+        var shouldRef = false;
+        if (interactive) {
+          shouldRef = true;
+        } else if (isContent) {
+          if (!interactiveOnly) shouldRef = true;
+          else if (name && name.length) shouldRef = true; // PRD-V4: content+name also gets ref in interactiveOnly=true
         }
 
         var children = [];
@@ -343,17 +448,45 @@
           if (stats.truncated) break;
         }
 
+        if (!shouldRef && children.length === 0) {
+          if (interactiveOnly) return null;
+          if (!text) return null;
+        }
+
+        var lvl = headingLevel(tag);
+        var ref = null;
+        if (shouldRef) {
+          ref = 'e' + refSeq++;
+          assignRef(el, ref);
+          refs[ref] = {
+            ref: ref,
+            tag: tag,
+            role: effectiveRole,
+            name: name || null,
+            attrs: pickAttrs(el, maxAttrValueLen),
+            cursorInteractive: !!cursorCandidate,
+            interactive: !!interactive,
+            level: lvl,
+          };
+        }
+
         stats.nodesEmitted++;
-        var node = { tag: tag, role: role, children: children };
+        var node = { tag: tag, role: effectiveRole, children: children };
         if (ref) node.ref = ref;
         if (name) node.name = name;
-        if (!interactiveOnly && isContent && name) node.text = name;
+        if (text) node.text = text;
+        if (lvl != null) node.level = lvl;
+        node.cursorInteractive = !!cursorCandidate;
+        node.interactive = !!interactive;
         if (ref) node.attrs = refs[ref].attrs;
         return node;
       }
 
       var tree = walk(rootEl, 0) || { tag: 'body', role: 'document', children: [] };
       stats.jsTimeMs = now() - started;
+      // PRD-V4 naming compatibility for stats fields.
+      stats.visitedNodes = stats.nodesVisited;
+      stats.emittedNodes = stats.nodesEmitted;
       return {
         version: 1,
         ok: true,

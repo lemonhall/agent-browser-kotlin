@@ -57,6 +57,21 @@
         <p id="agreeText" class="muted">agree: false</p>
 
         <div class="row" style="margin-top: 10px;">
+          <span id="lblH2" class="muted">Labelled Heading Text</span>
+          <span class="muted">(aria-labelledby)</span>
+        </div>
+        <h2 id="h2Labelled" aria-labelledby="lblH2"></h2>
+
+        <div
+          id="ciBox"
+          tabindex="0"
+          style="cursor:pointer; padding: 10px 12px; border: 1px dashed #94a3b8; border-radius: 10px; margin-top: 10px;"
+          onclick="ciClick()"
+        >
+          Cursor Interactive Box
+        </div>
+
+        <div class="row" style="margin-top: 10px;">
           <label class="muted" style="display:flex; align-items:center; gap: 8px;">
             <input id="agree" type="checkbox" aria-label="Agree Checkbox" onchange="setAgree(this.checked)" />
             Agree Checkbox
@@ -113,6 +128,10 @@
       }
       function setAgree(checked) {
         document.getElementById('agreeText').textContent = 'agree: ' + (checked ? 'true' : 'false');
+      }
+      function ciClick() {
+        document.getElementById('statusPill').textContent = 'ci-clicked';
+        document.getElementById('h1Title').textContent = 'ci-clicked';
       }
     </script>
   </body>
