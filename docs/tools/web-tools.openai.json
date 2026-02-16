@@ -2,6 +2,56 @@
   {
     "type": "function",
     "function": {
+      "name": "web_open",
+      "description": "打开/跳转到指定 URL（navigate）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" }
+        },
+        "required": ["url"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_back",
+      "description": "后退（history.back）。",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_forward",
+      "description": "前进（history.forward）。",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_reload",
+      "description": "刷新（location.reload）。",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "web_snapshot",
       "description": "获取当前页面的元素快照。返回带 [ref=eN] 标注的元素树；后续操作使用 ref 指定目标。",
       "parameters": {
@@ -43,6 +93,20 @@
   {
     "type": "function",
     "function": {
+      "name": "web_dblclick",
+      "description": "双击指定 ref 的元素。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "web_fill",
       "description": "在指定 ref 的输入框中填入文本（会先清空）。",
       "parameters": {
@@ -52,6 +116,21 @@
           "value": { "type": "string" }
         },
         "required": ["ref", "value"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_type",
+      "description": "在指定 ref 的输入框中逐字符输入文本（更接近真实键入）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" },
+          "text": { "type": "string" }
+        },
+        "required": ["ref", "text"]
       }
     }
   },
@@ -130,63 +209,6 @@
   {
     "type": "function",
     "function": {
-      "name": "web_get_text",
-      "description": "获取指定 ref 元素的文本内容（用于读取详情）。",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "ref": { "type": "string" },
-          "max_length": { "type": "integer", "default": 2000 }
-        },
-        "required": ["ref"]
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "web_get_value",
-      "description": "获取指定 ref 输入框的当前值。",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "ref": { "type": "string" }
-        },
-        "required": ["ref"]
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "web_clear",
-      "description": "清空指定 ref 的输入框值。",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "ref": { "type": "string" }
-        },
-        "required": ["ref"]
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "web_focus",
-      "description": "让指定 ref 元素获取焦点。",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "ref": { "type": "string" }
-        },
-        "required": ["ref"]
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
       "name": "web_hover",
       "description": "触发指定 ref 元素的 hover（mouseenter/mouseover）。",
       "parameters": {
@@ -215,19 +237,79 @@
   {
     "type": "function",
     "function": {
+      "name": "web_wait",
+      "description": "等待页面条件（selector/text/url 或纯等待 ms）。只需提供其中一种条件。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": { "type": "string", "description": "等待该 CSS selector 出现（可选）。" },
+          "text": { "type": "string", "description": "等待页面文本包含该子串（可选）。" },
+          "url": { "type": "string", "description": "等待 location.href 包含该子串（可选）。" },
+          "ms": { "type": "integer", "description": "纯等待时间（毫秒，优先级最高）。", "default": 0 },
+          "timeout_ms": { "type": "integer", "description": "总超时时间（毫秒）。", "default": 5000 },
+          "poll_ms": { "type": "integer", "description": "轮询间隔（毫秒）。", "default": 100 }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "web_query",
-      "description": "查询指定 ref 的信息（text/html/outerHTML/value/attrs/computed_styles）。",
+      "description": "查询指定 ref 的信息（text/html/outerHTML/value/attrs/computed_styles/isvisible/isenabled/ischecked）。",
       "parameters": {
         "type": "object",
         "properties": {
           "ref": { "type": "string" },
           "kind": {
             "type": "string",
-            "enum": ["text", "html", "outerHTML", "value", "attrs", "computed_styles"]
+            "enum": ["text", "html", "outerHTML", "value", "attrs", "computed_styles", "isvisible", "isenabled", "ischecked"]
           },
           "max_length": { "type": "integer", "default": 4000 }
         },
         "required": ["ref", "kind"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_screenshot",
+      "description": "截取当前屏幕截图（真机证据用）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string", "description": "可选标签，用于人类查看。" }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_eval",
+      "description": "执行一段 JavaScript（默认禁用，仅调试时开启）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "js": { "type": "string" },
+          "max_length": { "type": "integer", "default": 2000 }
+        },
+        "required": ["js"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_close",
+      "description": "关闭当前页面（WebView 场景会跳到 about:blank）。",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
       }
     }
   }

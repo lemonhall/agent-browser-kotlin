@@ -8,6 +8,8 @@
 
 最终交付物：**Kotlin 库**（纯 JVM，无 Android 依赖）+ **JS 库**（可注入 WebView）。
 
+> 但要让“真实 Agent”跑起来，通常还需要配套的“堆外交付物”（schema + prompt + 参考实现），见下文。
+
 ## Quick Commands (PowerShell)
 
 - Kotlin 单测（JVM）：`.\gradlew :agent-browser-kotlin:test --no-daemon`
@@ -65,6 +67,16 @@ WebView (JS 注入) ── snapshot/action/query(JSON) ──> Kotlin 解析/渲
     - 证据指针（对应 tests/commands + `docs/evidence/`）
   - 规则：`vN` 的计划必须从这份差异列表“摘差”形成里程碑；执行完 `vN` 后，必须再更新一次该对齐文档，并从剩余差异生成 `v(N+1)` 计划。
   - 目标：持续迭代，直到与 `docs/prd/archive/PRD-V4.md` **实现覆盖率 ≥ 100%**（以差异列表计数口径为准）。
+
+## Delivery Artifacts（给未来的 AI Coding Agent）
+
+本仓库“最终交付物”是 Kotlin/JS 库，但在真实工程接入时，通常还需要这些配套资产（也应视为对外可复用的交付物）：
+
+- Tool contract（OpenAI tools JSON）：`docs/tools/web-tools.openai.json`
+- WebTools 对外 API 设计（tool 预算 ≤ 25）：`docs/prd/PRD-0004-web-tools-public-api.md`
+- System prompt 模板（含移动端优先 + few-shot）：`docs/prompt/webview-webtools-system-prompt.md`
+- 参考 executor（Android instrumentation，用于抄作业/快速集成）：`app/src/androidTest/java/com/lsl/agent_browser_kotlin/agent/OpenAgenticWebTools.kt`
+  - 注意：`app/` 不是最终交付物，但这些工具实现是“可迁移参考代码”。
 
 ## Testing Strategy
 

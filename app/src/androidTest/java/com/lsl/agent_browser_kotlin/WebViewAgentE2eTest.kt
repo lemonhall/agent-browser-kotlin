@@ -84,7 +84,12 @@ class WebViewAgentE2eTest {
             val storeRoot = File(instrumentation.targetContext.filesDir, ".agents").absolutePath
             val sessionStore = FileSessionStore.system(storeRoot)
 
-            val runtime = WebToolRuntime(webView = webView, artifacts = artifacts)
+            val allowEval =
+                args.getString("ENABLE_WEB_EVAL")
+                    .orEmpty()
+                    .trim()
+                    .lowercase() in setOf("1", "true", "yes", "y")
+            val runtime = WebToolRuntime(webView = webView, artifacts = artifacts, allowEval = allowEval)
             val tools = ToolRegistry(OpenAgenticWebTools.all(runtime))
             val provider =
                 when (protocol) {
@@ -118,11 +123,16 @@ class WebViewAgentE2eTest {
                 目标步骤（按顺序）：
                 1) web_snapshot(interactive_only=false)
                 2) 找到并 web_click 名称为 “Accept cookies” 的按钮
-                3) 找到输入框并 web_fill value="hello"
-                4) web_snapshot(interactive_only=true)，确认输入框已填入
-                5) web_click “Toggle Hidden”
-                6) 找到 checkbox 并 web_check
-                7) 再 web_snapshot(interactive_only=false)，确认页面文本出现 "agree: true"
+                3) web_wait(ms=500)
+                4) 找到输入框并 web_fill value="hello"
+                5) 再对同一个输入框 web_type text="!"
+                6) web_click “Apply”
+                7) web_snapshot(interactive_only=true)，确认输入框已填入（应为 hello!）
+                8) web_click “Toggle Hidden”
+                9) 找到 checkbox 并 web_check
+                10) 对该 checkbox 调用 web_query(kind="ischecked")，确认返回 true
+                11) web_scroll_into_view 到 “Add Item” 按钮（如果它在快照中出现 ref）
+                12) 再 web_snapshot(interactive_only=false)，确认页面文本出现 "agree: true"
                 
                 完成后仅回复：OK
                 """.trimIndent()

@@ -8,6 +8,12 @@
 
 Android 模块 `app/` 仅用于真机/模拟器 E2E 验证，不是交付物。
 
+但在“真实 Agent”工程中，要把这套能力跑起来通常还需要配套资产（对外交付的一部分）：
+- OpenAI tools contract：`docs/tools/web-tools.openai.json`
+- WebTools 对外 API 设计（≤ 25 tools）：`docs/prd/PRD-0004-web-tools-public-api.md`
+- System prompt 模板（移动端优先 + few-shot）：`docs/prompt/webview-webtools-system-prompt.md`
+- 参考 executor（Android instrumentation，可迁移）：`app/src/androidTest/java/com/lsl/agent_browser_kotlin/agent/OpenAgenticWebTools.kt`
+
 ## 快速开始（Android WebView）
 
 1) 注入脚本（`evaluateJavascript`）：
@@ -49,13 +55,15 @@ webView.evaluateJavascript(AgentBrowser.actionJs(ref, ActionKind.SELECT, SelectP
 
 - OpenAI function tools JSON：`docs/tools/web-tools.openai.json`
 - tool → 本库映射（上层工具层负责把 tool 参数喂给 WebView 的 `evaluateJavascript`）：
+  - `web_open/web_back/web_forward/web_reload` → 原生 WebView 导航（推荐用 `WebView.loadUrl/goBack/goForward/reload` 并等待 `onPageFinished`）
   - `web_snapshot` → `AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly=..., cursorInteractive=..., scope=...))`
-  - `web_click/web_fill/web_select/web_check/web_uncheck` → `AgentBrowser.actionJs(ref, ActionKind.* , payload?)`
-  - `web_clear/web_focus/web_hover/web_scroll_into_view` → `AgentBrowser.actionJs(ref, ActionKind.CLEAR/FOCUS/HOVER/SCROLL_INTO_VIEW)`
+  - `web_click/web_dblclick/web_fill/web_type/web_select/web_check/web_uncheck/web_hover/web_scroll_into_view` → `AgentBrowser.actionJs(ref, ActionKind.* , payload?)`
   - `web_scroll` → `AgentBrowser.scrollJs(direction, amount)`
   - `web_press_key` → `AgentBrowser.pressKeyJs(key)`
-  - `web_get_text/web_get_value` → `AgentBrowser.queryJs(ref, QueryKind.TEXT/QueryKind.VALUE, QueryPayload(limitChars=...))`
+  - `web_wait` → 推荐由上层用轮询实现（避免 JS 侧 busy-loop 阻塞）；也可用 `AgentBrowser.pageJs(PageKind.WAIT, PagePayload(...))`
   - `web_query` → `AgentBrowser.queryJs(ref, QueryKind.*, QueryPayload(limitChars=...))`
+
+约束：web tools 总数控制在 **≤ 25**，为通用工具（文件系统/搜索等）预留空间。
 
 ## 开发与验证
 

@@ -13,6 +13,7 @@
 - JS 注入 + snapshot JSON + Kotlin 预算渲染（给模型看的文本）
 - action/query/page 的闭环与真机 E2E（截图帧 + snapshot artifacts + mp4/report）
 - 推荐 tool schema 文件（`docs/tools/web-tools.openai.json`）
+- WebTools 对外 API 设计与 tool 预算（≤ 25）：`docs/prd/PRD-0004-web-tools-public-api.md`
 
 但缺少关键一环：**没有真实 Agent 参与**。
 
@@ -96,4 +97,3 @@
 - v16：增强 prompt 模板与失败重试（ref 失效、overlay、超时等），扩展 2–3 条 agent tasks
 - v17：Schema 漂移门禁（schema ↔ executor 自动比对测试），引入更多 query/kind 覆盖
 - v18：更强证据（report 展示 tool_calls/结果摘要、关键断言的可视化标记）
-
