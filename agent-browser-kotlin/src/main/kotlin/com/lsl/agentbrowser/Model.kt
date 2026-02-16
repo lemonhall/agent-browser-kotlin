@@ -22,6 +22,7 @@ data class SnapshotStats(
     val nodesEmitted: Int? = null,
     val truncated: Boolean = false,
     val truncateReasons: List<String> = emptyList(),
+    val jsTimeMs: Long? = null,
 )
 
 @Serializable
@@ -59,6 +60,8 @@ data class SnapshotResult(
 @Serializable
 data class SnapshotJsOptions(
     val maxNodes: Int = 500,
+    val maxTextPerNode: Int = 200,
+    val maxAttrValueLen: Int = 150,
     val interactiveOnly: Boolean = true,
     val cursorInteractive: Boolean = false,
     val scope: String? = null,
@@ -67,6 +70,7 @@ data class SnapshotJsOptions(
 enum class ActionKind {
     CLICK,
     FILL,
+    SELECT,
 }
 
 @Serializable
@@ -76,6 +80,12 @@ sealed interface ActionPayload
 @SerialName("fill")
 data class FillPayload(
     val value: String,
+) : ActionPayload
+
+@Serializable
+@SerialName("select")
+data class SelectPayload(
+    val values: List<String>,
 ) : ActionPayload
 
 @Serializable
@@ -101,4 +111,3 @@ data class RenderResult(
     val truncateReasons: List<String>,
     val nodesRendered: Int,
 )
-

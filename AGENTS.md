@@ -56,6 +56,15 @@ WebView (JS 注入) ── snapshot/action/query(JSON) ──> Kotlin 解析/渲
 - 禁止把 secrets（token/证书/私钥/设备标识等）写进仓库或日志；`.env*`/keystore 已在 `.gitignore` 忽略。
 - 批量删除/移动文件（`Remove-Item -Recurse -Force` 等）前必须先征求用户确认。
 - “完成/通过”必须有证据：以可复现命令输出为准，不接受“我手测过了”。
+- **版本对齐 Gate（强制）**：每次开始新的 `vN`（写 `docs/plan/vN-index.md` 之前），必须先与“最初 PRD”做一轮对齐，避免跑偏：
+  - 最初 PRD 基准：`docs/prd/archive/PRD-V4.md`
+  - 产物：`docs/align/vN-prd-v4-alignment.md`（本轮开始前的“愿景 vs 现实”差异清单）
+  - 内容最少包含：
+    - 本轮范围（拟解决哪些差异）
+    - 差异列表（按 Req/模块分组）：`已实现` / `部分实现` / `未实现` / `偏离或需要 ECN`
+    - 证据指针（对应 tests/commands + `docs/evidence/`）
+  - 规则：`vN` 的计划必须从这份差异列表“摘差”形成里程碑；执行完 `vN` 后，必须再更新一次该对齐文档，并从剩余差异生成 `v(N+1)` 计划。
+  - 目标：持续迭代，直到与 `docs/prd/archive/PRD-V4.md` **实现覆盖率 ≥ 90%**（以差异列表计数口径为准）。
 
 ## Testing Strategy
 
@@ -127,7 +136,7 @@ PowerShell 下最稳妥的是用 `adb exec-out` + Windows 重定向到文件：
 
 ## Docs
 
-- 执行口径 PRD：`docs/prd/PRD-0002-agent-browser-kotlin.md`
+- 执行口径 PRD：`docs\prd\archive\PRD-V4.md`
 - v1 计划与追溯：`docs/plan/v1-index.md`
 - 证据：`docs/evidence/`
 

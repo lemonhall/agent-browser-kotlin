@@ -35,11 +35,13 @@ object AgentBrowser {
         val kindString = when (kind) {
             ActionKind.CLICK -> "click"
             ActionKind.FILL -> "fill"
+            ActionKind.SELECT -> "select"
         }
 
         val payloadJson = when (payload) {
             null -> "{}"
             is FillPayload -> json.encodeToString(payload)
+            is SelectPayload -> json.encodeToString(payload)
         }
         val refEscaped = ref.replace("\\", "\\\\").replace("'", "\\'")
         return "JSON.stringify(window.__agentBrowser.action('$refEscaped','$kindString',$payloadJson))"
