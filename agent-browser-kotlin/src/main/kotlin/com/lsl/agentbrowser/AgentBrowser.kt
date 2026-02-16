@@ -113,6 +113,8 @@ object AgentBrowser {
         return AgentBrowser.json.decodeFromString<QueryResult>(normalized)
     }
 
+    fun parseQueryResult(json: String): QueryResult = parseQuery(json)
+
     fun pageJs(kind: PageKind, payload: PagePayload = PagePayload()): String {
         val payloadJson = json.encodeToString(payload)
         return "JSON.stringify(window.__agentBrowser.page('${kind.wire}',$payloadJson))"
@@ -122,6 +124,37 @@ object AgentBrowser {
         val normalized = normalizeJsEvalResult(json)
         return AgentBrowser.json.decodeFromString<PageResult>(normalized)
     }
+
+    // --- PRD-V4 6.2 helpers (ergonomic sugar) ---
+
+    fun parseActionResult(json: String): ActionResult = parseAction(json)
+
+    fun queryJs(ref: String, kind: QueryKind, limitChars: Int): String =
+        queryJs(ref, kind, QueryPayload(limitChars = limitChars))
+
+    fun scrollJs(direction: String, amount: Int = 300): String {
+        val dir = direction.trim().lowercase()
+        val dx = when (dir) {
+            "left" -> -amount
+            "right" -> amount
+            else -> 0
+        }
+        val dy = when (dir) {
+            "up" -> -amount
+            "down" -> amount
+            else -> 0
+        }
+        return pageJs(PageKind.SCROLL, PagePayload(deltaX = dx, deltaY = dy))
+    }
+
+    fun pressKeyJs(key: String): String =
+        pageJs(PageKind.PRESS_KEY, PagePayload(key = key))
+
+    fun getUrlJs(): String =
+        "JSON.stringify((window.__agentBrowser && window.__agentBrowser.page && window.__agentBrowser.page.getUrl) ? window.__agentBrowser.page.getUrl() : (location && location.href ? location.href : ''))"
+
+    fun getTitleJs(): String =
+        "JSON.stringify((window.__agentBrowser && window.__agentBrowser.page && window.__agentBrowser.page.getTitle) ? window.__agentBrowser.page.getTitle() : (document && document.title ? document.title : ''))"
 }
 
 private class SnapshotRenderer(

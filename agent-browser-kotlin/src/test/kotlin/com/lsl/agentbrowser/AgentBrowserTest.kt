@@ -217,6 +217,14 @@ class AgentBrowserTest {
     }
 
     @Test
+    fun queryJs_overloadAcceptsLimitCharsInt() {
+        val js = AgentBrowser.queryJs("e9", QueryKind.TEXT, 222)
+        assertContains(js, "window.__agentBrowser.query(")
+        assertContains(js, "'text'")
+        assertContains(js, "\"limitChars\":222")
+    }
+
+    @Test
     fun pageJs_encodesKindAndPayload() {
         val js = AgentBrowser.pageJs(PageKind.SCROLL, PagePayload(deltaY = 200))
         assertContains(js, "window.__agentBrowser.page(")
@@ -224,4 +232,33 @@ class AgentBrowserTest {
         assertContains(js, "\"deltaY\":200")
     }
 
+    @Test
+    fun pageHelper_scrollJs_encodesDirectionToDelta() {
+        val up = AgentBrowser.scrollJs("up", amount = 123)
+        assertContains(up, "'scroll'")
+        assertContains(up, "\"deltaY\":-123")
+
+        val right = AgentBrowser.scrollJs("right", amount = 77)
+        assertContains(right, "'scroll'")
+        assertContains(right, "\"deltaX\":77")
+    }
+
+    @Test
+    fun pageHelper_pressKeyJs_encodesKey() {
+        val js = AgentBrowser.pressKeyJs("Enter")
+        assertContains(js, "window.__agentBrowser.page(")
+        assertContains(js, "'pressKey'")
+        assertContains(js, "\"key\":\"Enter\"")
+    }
+
+    @Test
+    fun pageHelper_getUrlAndTitle_areStringifyExpressions() {
+        val url = AgentBrowser.getUrlJs()
+        assertTrue(url.startsWith("JSON.stringify("))
+        assertContains(url, "location.href")
+
+        val title = AgentBrowser.getTitleJs()
+        assertTrue(title.startsWith("JSON.stringify("))
+        assertContains(title, "document.title")
+    }
 }

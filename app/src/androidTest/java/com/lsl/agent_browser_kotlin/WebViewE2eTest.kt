@@ -39,6 +39,7 @@ class WebViewE2eTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val device = UiDevice.getInstance(instrumentation)
         val downloadRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
         val runPrefix = "run-${System.currentTimeMillis()}"
 
         ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
@@ -48,6 +49,7 @@ class WebViewE2eTest {
             loadUrlAndWait(scenario, "file:///android_asset/e2e/complex.html")
 
             clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
             stepDelay()
 
             evalJs(webView, AgentBrowser.getScript())
@@ -65,6 +67,14 @@ class WebViewE2eTest {
             Log.i("WebViewE2E", render1.text)
             scenario.onActivity { it.setSnapshotText("[STEP 1] initial\n\n${render1.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 2)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 2,
+                snapshotRaw = snapshot1Raw,
+                snapshotText = render1.text,
+            )
             stepDelay()
 
             assertTrue("aria-hidden section should not appear", !render1.text.contains("Should Not Appear"))
@@ -105,6 +115,14 @@ class WebViewE2eTest {
             val render2 = AgentBrowser.renderSnapshot(snapshot2Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
             scenario.onActivity { it.setSnapshotText("[STEP 4] after fill (again)\n\n${render2.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 5)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 5,
+                snapshotRaw = snapshot2Raw,
+                snapshotText = render2.text,
+            )
             stepDelay()
 
             val selectRef2 = snapshot2.refs.values.firstOrNull { it.tag == "select" }?.ref
@@ -120,6 +138,14 @@ class WebViewE2eTest {
             val render3 = AgentBrowser.renderSnapshot(snapshot3Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
             scenario.onActivity { it.setSnapshotText("[STEP 5] after select beta\n\n${render3.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 6)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 6,
+                snapshotRaw = snapshot3Raw,
+                snapshotText = render3.text,
+            )
             stepDelay()
 
             assertTrue("snapshot should reflect mode change", render3.text.contains("mode: beta"))
@@ -136,6 +162,14 @@ class WebViewE2eTest {
             val render4 = AgentBrowser.renderSnapshot(snapshot4Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
             scenario.onActivity { it.setSnapshotText("[STEP 6] after Add Item\n\n${render4.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 7)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 7,
+                snapshotRaw = snapshot4Raw,
+                snapshotText = render4.text,
+            )
             stepDelay()
             assertTrue("snapshot should contain the new list item", render4.text.contains("hello"))
 
@@ -166,6 +200,14 @@ class WebViewE2eTest {
             val render5 = AgentBrowser.renderSnapshot(snapshot5Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
             scenario.onActivity { it.setSnapshotText("[STEP 8] after CHECK\n\n${render5.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 9)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 9,
+                snapshotRaw = snapshot5Raw,
+                snapshotText = render5.text,
+            )
             stepDelay()
             assertTrue("agree text should be true after CHECK", render5.text.contains("agree: true"))
 
@@ -182,6 +224,14 @@ class WebViewE2eTest {
             val render6 = AgentBrowser.renderSnapshot(snapshot6Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
             scenario.onActivity { it.setSnapshotText("[STEP 9] after UNCHECK\n\n${render6.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 10)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 10,
+                snapshotRaw = snapshot6Raw,
+                snapshotText = render6.text,
+            )
             stepDelay()
             assertTrue("agree text should be false after UNCHECK", render6.text.contains("agree: false"))
 
@@ -197,6 +247,14 @@ class WebViewE2eTest {
             val render7 = AgentBrowser.renderSnapshot(snapshot7Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
             scenario.onActivity { it.setSnapshotText("[STEP 10] after Toggle Hidden\n\n${render7.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 11)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 11,
+                snapshotRaw = snapshot7Raw,
+                snapshotText = render7.text,
+            )
             stepDelay()
             assertTrue("hidden action should appear after toggling", render7.text.contains("Hidden Action"))
 
@@ -212,6 +270,14 @@ class WebViewE2eTest {
             val render8 = AgentBrowser.renderSnapshot(snapshot8Raw, RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true))
             scenario.onActivity { it.setSnapshotText("[STEP 11] after Hidden Action\n\n${render8.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 12)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 12,
+                snapshotRaw = snapshot8Raw,
+                snapshotText = render8.text,
+            )
             stepDelay()
             assertTrue("status should reflect hidden click", render8.text.contains("hidden-clicked"))
 
@@ -261,6 +327,14 @@ class WebViewE2eTest {
             assertTrue("after cursorInteractive click, h1 should change", v5AfterCursorRender.text.contains("ci-clicked"))
             scenario.onActivity { it.setSnapshotText("[STEP v5] cursorInteractive + content refs OK\n\n${v5AfterCursorRender.text}") }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 13)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 13,
+                snapshotRaw = v5AfterCursorRaw,
+                snapshotText = v5AfterCursorRender.text,
+            )
             stepDelay()
 
             loadUrlAndWait(scenario, "file:///android_asset/e2e/stress.html")
@@ -294,11 +368,24 @@ class WebViewE2eTest {
             assertTrue(stress.ok)
             assertTrue("stress snapshot jsonBytes should be < 100KB (actual=$jsonBytes)", jsonBytes < 100 * 1024)
 
+            val stressRender = AgentBrowser.renderSnapshot(
+                stressRaw,
+                RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
+            )
+
             val jsTime = stress.stats?.jsTimeMs
             val perfLine = "[STEP 16] stress snapshot jsonBytes=$jsonBytes jsTimeMs=$jsTime"
             Log.i("WebViewE2E", perfLine)
             scenario.onActivity { it.setSnapshotText(perfLine) }
             captureStep(instrumentation, device, downloadRelativePath, runPrefix, 16)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 16,
+                snapshotRaw = stressRaw,
+                snapshotText = "[stress]\n$perfLine\n\n${stressRender.text}",
+            )
             stepDelay()
         }
     }
@@ -353,6 +440,26 @@ class WebViewE2eTest {
         }
     }
 
+    private fun clearOldSnapshots(instrumentation: android.app.Instrumentation) {
+        if (Build.VERSION.SDK_INT < 29) return
+        val resolver = instrumentation.targetContext.contentResolver
+        val projection = arrayOf(MediaStore.Downloads._ID)
+        resolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            projection,
+            "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?",
+            arrayOf("%agent-browser-kotlin/e2e/snapshots%", "%-snapshot.%"),
+            null,
+        )?.use { cursor ->
+            val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(idIdx)
+                val uri = ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id)
+                resolver.delete(uri, null, null)
+            }
+        }
+    }
+
     private fun captureStep(
         instrumentation: android.app.Instrumentation,
         device: UiDevice,
@@ -372,6 +479,38 @@ class WebViewE2eTest {
         val uri = saveToDownloads(instrumentation, relativePath, displayName, tmp)
         assertPngReadable(instrumentation, uri)
         tmp.delete()
+    }
+
+    private fun dumpSnapshotArtifacts(
+        instrumentation: android.app.Instrumentation,
+        relativePath: String,
+        runPrefix: String,
+        step: Int,
+        snapshotRaw: String,
+        snapshotText: String,
+    ) {
+        val stepStr = if (step < 10) "0$step" else step.toString()
+        val normalizedJson = AgentBrowser.normalizeJsEvalResult(snapshotRaw)
+
+        val textName = "$runPrefix-step-$stepStr-snapshot.txt"
+        val textUri = saveBytesToDownloads(
+            instrumentation = instrumentation,
+            relativePath = relativePath,
+            displayName = textName,
+            mimeType = "text/plain",
+            bytes = snapshotText.toByteArray(Charsets.UTF_8),
+        )
+        assertBytesReadable(instrumentation, textUri, minBytes = 16)
+
+        val jsonName = "$runPrefix-step-$stepStr-snapshot.json"
+        val jsonUri = saveBytesToDownloads(
+            instrumentation = instrumentation,
+            relativePath = relativePath,
+            displayName = jsonName,
+            mimeType = "application/json",
+            bytes = normalizedJson.toByteArray(Charsets.UTF_8),
+        )
+        assertBytesReadable(instrumentation, jsonUri, minBytes = 16)
     }
 
     private fun saveToDownloads(
@@ -408,6 +547,39 @@ class WebViewE2eTest {
         return android.net.Uri.fromFile(target)
     }
 
+    private fun saveBytesToDownloads(
+        instrumentation: android.app.Instrumentation,
+        relativePath: String,
+        displayName: String,
+        mimeType: String,
+        bytes: ByteArray,
+    ): android.net.Uri {
+        val resolver = instrumentation.targetContext.contentResolver
+
+        if (Build.VERSION.SDK_INT >= 29) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, displayName)
+                put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                put(MediaStore.Downloads.RELATIVE_PATH, relativePath)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: error("MediaStore insert failed for $displayName")
+            resolver.openOutputStream(uri, "w")!!.use { out -> out.write(bytes) }
+            ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }.also {
+                resolver.update(uri, it, null, null)
+            }
+            return uri
+        }
+
+        val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val dir = File(downloads, relativePath.removePrefix("Download/"))
+        dir.mkdirs()
+        val target = File(dir, displayName)
+        target.writeBytes(bytes)
+        return android.net.Uri.fromFile(target)
+    }
+
     private fun assertPngReadable(instrumentation: android.app.Instrumentation, uri: android.net.Uri) {
         val resolver = instrumentation.targetContext.contentResolver
         val header = ByteArray(8)
@@ -416,5 +588,24 @@ class WebViewE2eTest {
             assertEquals(8, read)
         }
         assertArrayEquals(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A), header)
+    }
+
+    private fun assertBytesReadable(
+        instrumentation: android.app.Instrumentation,
+        uri: android.net.Uri,
+        minBytes: Int,
+    ) {
+        val resolver = instrumentation.targetContext.contentResolver
+        val buf = ByteArray(64)
+        var total = 0
+        resolver.openInputStream(uri)!!.use { input ->
+            while (true) {
+                val read = input.read(buf)
+                if (read <= 0) break
+                total += read
+                if (total >= minBytes) break
+            }
+        }
+        assertTrue("artifact too small: $uri bytes=$total", total >= minBytes)
     }
 }
