@@ -36,3 +36,21 @@
 - 真机：`.\gradlew :app:connectedAndroidTest --no-daemon`
 - Evidence：`docs/evidence/2026-02-16-v7-connectedAndroidTest.txt`
 
+---
+
+# v7 对齐（完成回填）
+
+## v7 完成情况（结果回填）
+
+- ✅ Kotlin API（PRD-V4 6.2 helpers）
+  - 新增 `scrollJs/pressKeyJs/getUrlJs/getTitleJs`
+  - 新增 `queryJs(ref, kind, limitChars: Int)` overload
+- ✅ E2E 证据（人类可感知增强）
+  - connectedAndroidTest 在 Downloads 额外落盘 `snapshots/*.txt` 与 `snapshots/*.json`
+
+证据：
+- `docs/evidence/2026-02-16-v7-connectedAndroidTest.txt`
+
+## v7 仍未完全对齐（剩余差异）
+
+- 无新增差异；后续迭代优先转向 PRD-V4 §7（Ref 生命周期）在“导航/页面切换”场景下的 E2E 覆盖与证据。

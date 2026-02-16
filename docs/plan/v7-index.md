@@ -13,11 +13,10 @@
 
 | Milestone | 范围 | DoD（可二元判定） | 验证方式 | 状态 |
 |---|---|---|---|---|
-| M27 | Kotlin helpers | 新增 `scrollJs/pressKeyJs/getUrlJs/getTitleJs` + `queryJs(ref, kind, limit)` overload；JVM 单测覆盖 | `.\gradlew :agent-browser-kotlin:test` | todo |
-| M28 | E2E snapshot dumps | connectedAndroidTest 每个关键 step 产出 `Downloads/.../snapshots/*.txt`（以及可选 `.json`），且可被读取校验 | `.\gradlew :app:connectedAndroidTest` | todo |
-| M29 | 真机证据 | v7 完整回归并落盘 evidence | `.\gradlew :app:connectedAndroidTest` | todo |
+| M27 | Kotlin helpers | 新增 `scrollJs/pressKeyJs/getUrlJs/getTitleJs` + `queryJs(ref, kind, limit)` overload；JVM 单测覆盖 | `.\gradlew :agent-browser-kotlin:test` | done |
+| M28 | E2E snapshot dumps | connectedAndroidTest 每个关键 step 产出 `Downloads/.../snapshots/*.txt`（以及可选 `.json`），且可被读取校验 | `.\gradlew :app:connectedAndroidTest` | done |
+| M29 | 真机证据 | v7 完整回归并落盘 evidence | `.\gradlew :app:connectedAndroidTest` | done |
 
 ## 计划索引
 
 - `docs/plan/v7-kotlin-page-helpers.md`
-
