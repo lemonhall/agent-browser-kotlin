@@ -64,7 +64,7 @@ WebView (JS 注入) ── snapshot/action/query(JSON) ──> Kotlin 解析/渲
     - 差异列表（按 Req/模块分组）：`已实现` / `部分实现` / `未实现` / `偏离或需要 ECN`
     - 证据指针（对应 tests/commands + `docs/evidence/`）
   - 规则：`vN` 的计划必须从这份差异列表“摘差”形成里程碑；执行完 `vN` 后，必须再更新一次该对齐文档，并从剩余差异生成 `v(N+1)` 计划。
-  - 目标：持续迭代，直到与 `docs/prd/archive/PRD-V4.md` **实现覆盖率 ≥ 90%**（以差异列表计数口径为准）。
+  - 目标：持续迭代，直到与 `docs/prd/archive/PRD-V4.md` **实现覆盖率 ≥ 100%**（以差异列表计数口径为准）。
 
 ## Testing Strategy
 

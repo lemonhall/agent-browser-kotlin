@@ -1,6 +1,6 @@
 # v2-index：agent-browser-kotlin
 
-- **PRD**：`docs/prd/PRD-0002-agent-browser-kotlin.md`
+- **PRD**：`docs/prd/archive/PRD-V4.md`
 - **版本**：v2
 - **日期**：2026-02-16
 

@@ -1,7 +1,7 @@
 # v2 对齐：PRD-V4（archive） vs 当前实现
 
 - **PRD 基准**：`docs/prd/archive/PRD-V4.md`
-- **当前执行口径**：`docs/prd/PRD-0002-agent-browser-kotlin.md`
+- **执行口径**：`docs/prd/archive/PRD-V4.md`
 - **本轮范围（v2）**：`docs/plan/v2-index.md`
 - **证据总览**：`docs/evidence/2026-02-16-v2-connectedAndroidTest.txt`
 
@@ -58,4 +58,3 @@
 - Page：**未覆盖**
 
 结论：v2 已把“闭环 + 证据链”打硬，但离 90% 还有明显差距；v3 优先补齐 Action/Query/Page 的缺口。
-

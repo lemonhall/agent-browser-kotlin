@@ -1,7 +1,7 @@
 # v3-index：agent-browser-kotlin
 
 - **PRD 基准**：`docs/prd/archive/PRD-V4.md`
-- **执行口径 PRD**：`docs/prd/PRD-0002-agent-browser-kotlin.md`
+- **执行口径 PRD**：`docs/prd/archive/PRD-V4.md`
 - **版本**：v3
 - **日期**：2026-02-16
 - **对齐起点**：`docs/align/v2-prd-v4-alignment.md`

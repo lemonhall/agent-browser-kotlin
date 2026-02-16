@@ -58,9 +58,42 @@ object AgentBrowser {
         return AgentBrowser.json.decodeFromString<SnapshotResult>(normalized)
     }
 
-    fun renderSnapshot(snapshotJson: String, options: RenderOptions = RenderOptions()): RenderResult {
+    fun renderSnapshot(snapshotJson: String, options: RenderOptions = RenderOptions()): SnapshotRenderResult {
         val snapshot = parseSnapshot(snapshotJson)
-        val renderer = SnapshotRenderer(options)
+        val refs = snapshot.refs
+        val render = if (options.format == OutputFormat.JSON) {
+            RenderResult(
+                text = "",
+                truncated = false,
+                truncateReasons = emptyList(),
+                nodesRendered = 0,
+            )
+        } else {
+            val renderer = SnapshotRenderer(options)
+            renderer.render(snapshot)
+        }
+
+        val stats = SnapshotRenderStats(
+            js = snapshot.stats,
+            charsEmitted = render.text.length,
+            nodesRendered = render.nodesRendered,
+            truncated = render.truncated,
+            truncateReasons = render.truncateReasons,
+        )
+
+        return SnapshotRenderResult(
+            format = options.format,
+            text = render.text,
+            refs = refs,
+            stats = stats,
+            snapshot = snapshot,
+        )
+    }
+
+    fun renderSnapshotText(snapshotJson: String, options: RenderOptions = RenderOptions()): RenderResult {
+        val forced = options.copy(format = OutputFormat.PLAIN_TEXT_TREE)
+        val snapshot = parseSnapshot(snapshotJson)
+        val renderer = SnapshotRenderer(forced)
         return renderer.render(snapshot)
     }
 

@@ -20,18 +20,17 @@ v5 已把 Snapshot 的角色集合/Ref 规则、cursor-interactive gate、name/a
 
 ### Docs（仓库可维护性）
 
-- 多处文档引用 `docs/prd/PRD-0002-agent-browser-kotlin.md`，但该文件当前缺失；易导致“执行口径”漂移。
+- 仓库内不再维护“清洗版 PRD”文件；执行口径统一以 `docs/prd/archive/PRD-V4.md` 为准，避免引用漂移。
 
 ## v6 本轮摘差（计划解决）
 
 - Kotlin 侧补齐 PRD-V4 6.x 的最小 API 形态：
   - 引入 `OutputFormat` 与 `RenderOptions.format`
   - 提供一个“对齐 PRD 产物形态”的渲染入口：一次调用拿到 `text + refs + stats`
-- 修复 PRD 执行口径文档缺失（从归档 PRD 抽取/落盘，消除 broken links）
+- 清理仓库内对“清洗版 PRD”路径的引用，统一指向 `docs/prd/archive/PRD-V4.md`
 
 ## 证据口径（v6 预设）
 
 - JVM：`.\gradlew :agent-browser-kotlin:test --no-daemon`
 - 真机：`.\gradlew :app:connectedAndroidTest --no-daemon`
 - Evidence：`docs/evidence/2026-02-16-v6-connectedAndroidTest.txt`
-

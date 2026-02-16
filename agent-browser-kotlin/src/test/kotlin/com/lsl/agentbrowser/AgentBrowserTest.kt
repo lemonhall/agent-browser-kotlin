@@ -99,10 +99,13 @@ class AgentBrowserTest {
             }
             """.trimIndent()
 
-        val result = AgentBrowser.renderSnapshot(snapshotJson, RenderOptions(maxCharsTotal = 60, maxNodes = 200, maxDepth = 12, compact = true))
+        val result = AgentBrowser.renderSnapshot(
+            snapshotJson,
+            RenderOptions(maxCharsTotal = 60, maxNodes = 200, maxDepth = 12, compact = true, format = OutputFormat.PLAIN_TEXT_TREE),
+        )
         assertTrue(result.text.length <= 60)
-        assertTrue(result.truncated)
-        assertTrue(result.truncateReasons.isNotEmpty())
+        assertTrue(result.stats.truncated)
+        assertTrue(result.stats.truncateReasons.isNotEmpty())
     }
 
     @Test
@@ -129,10 +132,36 @@ class AgentBrowserTest {
             }
             """.trimIndent()
 
-        val rendered = AgentBrowser.renderSnapshot(snapshotJson, RenderOptions(maxCharsTotal = 4000, maxNodes = 200, maxDepth = 12, compact = true))
+        val rendered = AgentBrowser.renderSnapshot(
+            snapshotJson,
+            RenderOptions(maxCharsTotal = 4000, maxNodes = 200, maxDepth = 12, compact = true, format = OutputFormat.PLAIN_TEXT_TREE),
+        )
         assertContains(rendered.text, "href=\"/docs\"")
         assertContains(rendered.text, "placeholder=\"Search\"")
         assertContains(rendered.text, "value=\"hello\"")
+    }
+
+    @Test
+    fun renderSnapshot_formatJson_returnsStructuredResult_andEmptyText() {
+        val snapshotJson =
+            """
+            {
+              "ok": true,
+              "type": "snapshot",
+              "meta": { "url": "https://example.com", "title": "Example", "ts": 1 },
+              "stats": { "nodesVisited": 3, "nodesEmitted": 2, "truncated": false, "truncateReasons": [] },
+              "refs": {
+                "e1": { "ref":"e1", "tag":"button", "role":"button", "name":"Search", "attrs":{} }
+              },
+              "tree": { "tag":"body", "role":"document", "children": [] }
+            }
+            """.trimIndent()
+
+        val rendered = AgentBrowser.renderSnapshot(snapshotJson, RenderOptions(format = OutputFormat.JSON))
+        assertEquals(OutputFormat.JSON, rendered.format)
+        assertEquals("", rendered.text)
+        assertTrue(rendered.snapshot.ok)
+        assertEquals("Search", rendered.refs["e1"]?.name)
     }
 
     @Test
