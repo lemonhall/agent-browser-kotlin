@@ -1,0 +1,160 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "web_snapshot",
+      "description": "获取当前页面的元素快照。返回带 [ref=eN] 标注的元素树；后续操作使用 ref 指定目标。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "interactive_only": {
+            "type": "boolean",
+            "description": "true=只返回可交互元素；false=同时返回标题/列表项/图片等内容元素。",
+            "default": true
+          },
+          "cursor_interactive": {
+            "type": "boolean",
+            "description": "true=额外把 cursor:pointer/onclick/tabindex 等“非标准交互元素”纳入 refs（对齐 PRD-V4 cursorInteractive gate）。",
+            "default": false
+          },
+          "scope": {
+            "type": "string",
+            "description": "可选：CSS selector，将 snapshot 限定在该元素子树内（默认 document.body）。"
+          }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_click",
+      "description": "点击指定 ref 的元素。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_fill",
+      "description": "在指定 ref 的输入框中填入文本（会先清空）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" },
+          "value": { "type": "string" }
+        },
+        "required": ["ref", "value"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_select",
+      "description": "在指定 ref 的下拉框中选择选项（按 option.value 或显示文本匹配）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" },
+          "values": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["ref", "values"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_check",
+      "description": "勾选指定 ref 的 checkbox 或 radio。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_uncheck",
+      "description": "取消勾选指定 ref 的 checkbox。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_scroll",
+      "description": "页面滚动。direction: up/down/left/right。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "direction": { "type": "string", "enum": ["up", "down", "left", "right"] },
+          "amount": { "type": "integer", "default": 300 }
+        },
+        "required": ["direction"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_press_key",
+      "description": "在当前焦点元素上按键（如 Enter/Tab/Escape/Backspace/ArrowDown）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" }
+        },
+        "required": ["key"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_get_text",
+      "description": "获取指定 ref 元素的文本内容（用于读取详情）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" },
+          "max_length": { "type": "integer", "default": 2000 }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_get_value",
+      "description": "获取指定 ref 输入框的当前值。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  }
+]
+

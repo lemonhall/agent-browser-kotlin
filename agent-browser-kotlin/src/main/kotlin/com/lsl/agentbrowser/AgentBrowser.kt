@@ -61,16 +61,20 @@ object AgentBrowser {
     fun renderSnapshot(snapshotJson: String, options: RenderOptions = RenderOptions()): SnapshotRenderResult {
         val snapshot = parseSnapshot(snapshotJson)
         val refs = snapshot.refs
-        val render = if (options.format == OutputFormat.JSON) {
-            RenderResult(
-                text = "",
-                truncated = false,
-                truncateReasons = emptyList(),
-                nodesRendered = 0,
-            )
-        } else {
-            val renderer = SnapshotRenderer(options)
-            renderer.render(snapshot)
+        val render = when (options.format) {
+            OutputFormat.JSON -> {
+                val normalized = normalizeJsEvalResult(snapshotJson)
+                RenderResult(
+                    text = normalized,
+                    truncated = snapshot.stats?.truncated == true,
+                    truncateReasons = snapshot.stats?.truncateReasons ?: emptyList(),
+                    nodesRendered = snapshot.stats?.nodesEmitted ?: 0,
+                )
+            }
+            OutputFormat.PLAIN_TEXT_TREE -> {
+                val renderer = SnapshotRenderer(options)
+                renderer.render(snapshot)
+            }
         }
 
         val stats = SnapshotRenderStats(
@@ -185,31 +189,45 @@ private class SnapshotRenderer(
         }
 
         val finalText = out.toString().trimEnd()
-        val finalReasons = reasons.toList()
+        val jsTruncated = snapshot.stats?.truncated == true
+        val jsReasons = snapshot.stats?.truncateReasons ?: emptyList()
+        val finalReasonsSet = linkedSetOf<String>().also {
+            it.addAll(reasons)
+            it.addAll(jsReasons)
+        }
+        var finalTruncated = truncated || jsTruncated
         val header = fitHeader(
             url = url,
             title = title,
             nodes = nodesRendered,
-            truncated = truncated,
-            truncateReasons = finalReasons,
+            truncated = finalTruncated,
+            truncateReasons = finalReasonsSet.toList(),
         )
 
         val headerLineEnd = finalText.indexOf('\n')
-        val rebuilt = if (headerLineEnd >= 0) {
-            header + "\n" + finalText.substring(headerLineEnd + 1)
-        } else {
-            header
+        val body = if (headerLineEnd >= 0) finalText.substring(headerLineEnd + 1) else ""
+        fun rebuildWithHeader(h: String): String = if (body.isNotEmpty()) "$h\n$body" else h
+
+        var rebuilt = rebuildWithHeader(header)
+        if (rebuilt.length > options.maxCharsTotal) {
+            finalTruncated = true
+            finalReasonsSet.add("maxCharsTotal")
+            val header2 = fitHeader(
+                url = url,
+                title = title,
+                nodes = nodesRendered,
+                truncated = finalTruncated,
+                truncateReasons = finalReasonsSet.toList(),
+            )
+            rebuilt = rebuildWithHeader(header2)
         }
 
-        val bounded = if (rebuilt.length <= options.maxCharsTotal) rebuilt else rebuilt.take(options.maxCharsTotal).also {
-            truncated = true
-            reasons.add("maxCharsTotal")
-        }
+        val bounded = if (rebuilt.length <= options.maxCharsTotal) rebuilt else rebuilt.take(options.maxCharsTotal)
 
         return RenderResult(
             text = bounded,
-            truncated = truncated,
-            truncateReasons = reasons.toList(),
+            truncated = finalTruncated,
+            truncateReasons = finalReasonsSet.toList(),
             nodesRendered = nodesRendered,
         )
     }

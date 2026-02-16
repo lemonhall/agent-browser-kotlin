@@ -159,9 +159,41 @@ class AgentBrowserTest {
 
         val rendered = AgentBrowser.renderSnapshot(snapshotJson, RenderOptions(format = OutputFormat.JSON))
         assertEquals(OutputFormat.JSON, rendered.format)
-        assertEquals("", rendered.text)
+        assertEquals(snapshotJson, rendered.text)
         assertTrue(rendered.snapshot.ok)
         assertEquals("Search", rendered.refs["e1"]?.name)
+    }
+
+    @Test
+    fun renderSnapshot_mergesJsTruncationIntoRenderStats() {
+        val snapshotJson =
+            """
+            {
+              "ok": true,
+              "type": "snapshot",
+              "meta": { "url": "https://example.com", "title": "Example", "ts": 1 },
+              "stats": { "nodesVisited": 999, "nodesEmitted": 500, "truncated": true, "truncateReasons": ["maxNodes"] },
+              "refs": {
+                "e1": { "ref":"e1", "tag":"button", "role":"button", "name":"Search", "attrs":{} }
+              },
+              "tree": {
+                "tag":"body",
+                "role":"document",
+                "children": [
+                  { "ref":"e1", "tag":"button", "role":"button", "name":"Search", "children":[] }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val rendered = AgentBrowser.renderSnapshot(
+            snapshotJson,
+            RenderOptions(maxCharsTotal = 8000, maxNodes = 200, maxDepth = 12, compact = true, format = OutputFormat.PLAIN_TEXT_TREE),
+        )
+        assertTrue(rendered.stats.truncated)
+        assertTrue(rendered.stats.truncateReasons.contains("maxNodes"))
+        assertContains(rendered.text, "truncated=true")
+        assertContains(rendered.text, "maxNodes")
     }
 
     @Test

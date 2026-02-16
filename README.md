@@ -45,6 +45,16 @@ webView.evaluateJavascript(AgentBrowser.actionJs(ref, ActionKind.SELECT, SelectP
   - 需要在 `snapshot → action` 的短窗口内使用；
   - 页面显著变化/导航后应重新 snapshot。
 
+## 推荐 tool schema（给模型看的）
+
+- OpenAI function tools JSON：`docs/tools/web-tools.openai.json`
+- tool → 本库映射（上层工具层负责把 tool 参数喂给 WebView 的 `evaluateJavascript`）：
+  - `web_snapshot` → `AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly=..., cursorInteractive=..., scope=...))`
+  - `web_click/web_fill/web_select/web_check/web_uncheck` → `AgentBrowser.actionJs(ref, ActionKind.* , payload?)`
+  - `web_scroll` → `AgentBrowser.scrollJs(direction, amount)`
+  - `web_press_key` → `AgentBrowser.pressKeyJs(key)`
+  - `web_get_text/web_get_value` → `AgentBrowser.queryJs(ref, QueryKind.TEXT/QueryKind.VALUE, QueryPayload(limitChars=...))`
+
 ## 开发与验证
 
 - Kotlin 单测（JVM）：`.\gradlew :agent-browser-kotlin:test --no-daemon`
