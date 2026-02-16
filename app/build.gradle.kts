@@ -3,6 +3,39 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
+import java.io.File
+
+fun readDotEnv(file: File): Map<String, String> {
+    if (!file.exists()) return emptyMap()
+    val out = linkedMapOf<String, String>()
+    file.readLines(Charsets.UTF_8).forEach { rawLine ->
+        val line = rawLine.trim()
+        if (line.isEmpty() || line.startsWith("#")) return@forEach
+        val idx = line.indexOf('=')
+        if (idx <= 0) return@forEach
+        val key = line.substring(0, idx).trim()
+        var value = line.substring(idx + 1).trim()
+        if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.substring(1, value.length - 1)
+        }
+        if (key.isNotEmpty()) out[key] = value
+    }
+    return out
+}
+
+val dotEnv = readDotEnv(rootProject.file(".env"))
+val openAiApiKey = (dotEnv["OPENAI_API_KEY"] ?: System.getenv("OPENAI_API_KEY")).orEmpty()
+val openAiBaseUrl = (dotEnv["OPENAI_BASE_URL"] ?: System.getenv("OPENAI_BASE_URL")).orEmpty()
+val openAiModel = (dotEnv["MODEL"] ?: System.getenv("MODEL")).orEmpty()
+
+fun isLikelyRealOpenAiKey(value: String): Boolean {
+    val v = value.trim()
+    if (v.isBlank()) return false
+    // Avoid accidentally enabling network tests with redacted placeholders like "sk-xxxxxx".
+    if (v.contains("xxxx", ignoreCase = true)) return false
+    return v.length >= 20
+}
+
 android {
     namespace = "com.lsl.agent_browser_kotlin"
     compileSdk = 35
@@ -15,6 +48,18 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Pass OpenAI config to instrumentation tests without committing secrets.
+        // NOTE: do not print these values in logs.
+        if (isLikelyRealOpenAiKey(openAiApiKey)) {
+            testInstrumentationRunnerArguments["OPENAI_API_KEY"] = openAiApiKey
+        }
+        if (openAiBaseUrl.isNotBlank()) {
+            testInstrumentationRunnerArguments["OPENAI_BASE_URL"] = openAiBaseUrl
+        }
+        if (openAiModel.isNotBlank()) {
+            testInstrumentationRunnerArguments["MODEL"] = openAiModel
+        }
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -65,6 +110,9 @@ dependencies {
     androidTestImplementation(libs.androidx.runner)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.uiautomator)
+    androidTestImplementation(libs.kotlinx.serialization.json)
+    androidTestImplementation("com.squareup.okio:okio:3.8.0")
+    androidTestImplementation("me.lemonhall.openagentic:openagentic-sdk-kotlin:0.1.0-SNAPSHOT")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)

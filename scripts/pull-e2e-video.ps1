@@ -23,6 +23,7 @@ $ffmpeg = Resolve-FfmpegPath
 $deviceFramesDir = "/sdcard/Download/agent-browser-kotlin/e2e/frames"
 $deviceSnapshotsDir = "/sdcard/Download/agent-browser-kotlin/e2e/snapshots"
 $deviceAppExternalFramesDir = "/sdcard/Android/data/com.lsl.agent_browser_kotlin/files/e2e/frames"
+$appPkg = "com.lsl.agent_browser_kotlin"
 
 $outRoot = Join-Path $PWD "adb_dumps\\e2e"
 $latestDir = Join-Path $outRoot "latest"
@@ -105,12 +106,41 @@ function Write-RunReportHtml {
   $sb.Add('<!doctype html>')
   $sb.Add('<html><head><meta charset="utf-8" />')
   $sb.Add("<title>$([System.Net.WebUtility]::HtmlEncode($title))</title>")
-  $sb.Add('<style>body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:24px;line-height:1.35} .run{color:#334155} img{max-width:420px;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(2,6,23,.08)} pre{white-space:pre-wrap;background:#0b1020;color:#e2e8f0;padding:12px;border-radius:10px;overflow:auto} a{color:#2563eb;text-decoration:none} a:hover{text-decoration:underline} .grid{display:grid;grid-template-columns:460px 1fr;gap:16px;align-items:start;margin:18px 0} .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#475569}</style>')
+  $sb.Add('<style>body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:24px;line-height:1.35} .run{color:#334155} img{max-width:420px;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(2,6,23,.08)} pre{white-space:pre-wrap;background:#0b1020;color:#e2e8f0;padding:12px;border-radius:10px;overflow:auto} a{color:#2563eb;text-decoration:none} a:hover{text-decoration:underline} .grid{display:grid;grid-template-columns:460px 1fr;gap:16px;align-items:start;margin:18px 0} .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#475569} details{margin:12px 0} summary{cursor:pointer;color:#0f172a}</style>')
   $sb.Add('</head><body>')
   $sb.Add("<h1>$([System.Net.WebUtility]::HtmlEncode($title))</h1>")
   $labelEsc = [System.Net.WebUtility]::HtmlEncode(($Label -as [string]))
   $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
   $sb.Add('<div class="meta"><span class="run">run=' + $RunId + '</span><span>label=' + $labelEsc + '</span><span>generated=' + $generated + '</span></div>')
+
+  # Optional agent session evidence (OpenAgentic sessions/events).
+  $snapDir = Join-Path $OutDir "snapshots"
+  $sessionId = $null
+  try {
+    $sidFile = Get-ChildItem -Path $snapDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like ("run-" + $RunId + "*-session_id.txt") } | Select-Object -First 1
+    if ($sidFile) { $sessionId = (Get-Content -Raw -Path $sidFile.FullName -ErrorAction SilentlyContinue).Trim() }
+  } catch { }
+  $eventsPath = Join-Path $OutDir "session\\events.jsonl"
+  $metaPath = Join-Path $OutDir "session\\meta.json"
+  if ($sessionId -or (Test-Path $eventsPath)) {
+    $sb.Add('<h2>Agent Session</h2>')
+    if ($sessionId) { $sb.Add('<div class="meta"><span>session_id=' + (HtmlEncode $sessionId) + '</span></div>') }
+    if (Test-Path $eventsPath) {
+      $sb.Add('<div class="meta"><a href="session/events.jsonl">events.jsonl</a> · <a href="session/meta.json">meta.json</a></div>')
+      $preview = ''
+      try {
+        $lines = Get-Content -Path $eventsPath -TotalCount 200 -ErrorAction Stop
+        $preview = ($lines -join "`n")
+      } catch {
+        $preview = "[missing events preview]"
+      }
+      $sb.Add('<details><summary>events.jsonl preview (first 200 lines)</summary>')
+      $sb.Add("<pre>$([System.Net.WebUtility]::HtmlEncode($preview))</pre>")
+      $sb.Add('</details>')
+    } else {
+      $sb.Add('<div class="meta">no events.jsonl (session pull may have failed)</div>')
+    }
+  }
 
   foreach ($s in $Steps) {
     $stepNum = $s.Step
@@ -140,11 +170,43 @@ function Write-RunReportHtml {
   $sb | Set-Content -Path $outFile -Encoding UTF8
 }
 
+$runSummaries = New-Object System.Collections.Generic.List[object]
+
+function Try-PullAgentSession {
+  param(
+    [string]$SessionId,
+    [string]$OutDir
+  )
+  $sid = ($SessionId -as [string]).Trim()
+  if (-not $sid) { return $false }
+  if ($sid -notmatch '^[0-9a-fA-F]{32}$') {
+    Write-Warning ("skip session pull: invalid session_id=" + $sid)
+    return $false
+  }
+  New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+  $eventsOut = Join-Path $OutDir "events.jsonl"
+  $metaOut = Join-Path $OutDir "meta.json"
+  $errOut = Join-Path $OutDir "adb.err.txt"
+
+  try {
+    $pEv = Start-Process -FilePath $adb -ArgumentList @("exec-out","run-as",$appPkg,"cat",("files/.agents/sessions/" + $sid + "/events.jsonl")) -NoNewWindow -PassThru -Wait -RedirectStandardOutput $eventsOut -RedirectStandardError $errOut
+    if ($pEv.ExitCode -ne 0) { return $false }
+    if (-not (Test-Path $eventsOut)) { return $false }
+    if ((Get-Item $eventsOut).Length -lt 16) { return $false }
+
+    $pMeta = Start-Process -FilePath $adb -ArgumentList @("exec-out","run-as",$appPkg,"cat",("files/.agents/sessions/" + $sid + "/meta.json")) -NoNewWindow -PassThru -Wait -RedirectStandardOutput $metaOut -RedirectStandardError $errOut
+    if ($pMeta.ExitCode -ne 0) { return $false }
+
+    return $true
+  } catch {
+    return $false
+  }
+}
+
 $runsOutDir = Join-Path $runDir "runs"
 New-Item -ItemType Directory -Force -Path $runsOutDir | Out-Null
 
 $durationSec = 3.5
-$runSummaries = New-Object System.Collections.Generic.List[object]
 
 foreach ($rid in $runIds) {
   $runLabel = ($frameInfos | Where-Object { $_.RunId -eq $rid -and $_.Label } | Select-Object -First 1 -ExpandProperty Label)
@@ -190,6 +252,24 @@ foreach ($rid in $runIds) {
     }
   }
 
+  $sessionId = $null
+  $sessionFiles = @(
+    Get-ChildItem -Path $snapshotsLocal -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -like "run-$rid*-session_id.txt" } |
+      Sort-Object Name
+  )
+  if ($sessionFiles.Count -gt 0) {
+    $sf0 = $sessionFiles[0]
+    Copy-Item -Force $sf0.FullName (Join-Path $runSnapshotsOut $sf0.Name)
+    try { $sessionId = (Get-Content -Raw -Path $sf0.FullName -ErrorAction SilentlyContinue).Trim() } catch { $sessionId = $null }
+  }
+
+  $hasEvents = $false
+  if ($sessionId) {
+    $runSessionOut = Join-Path $runOut "session"
+    $hasEvents = Try-PullAgentSession -SessionId $sessionId -OutDir $runSessionOut
+  }
+
   $concat = Join-Path $runOut "concat.txt"
   $lines = New-Object System.Collections.Generic.List[string]
   foreach ($s in ($stepFiles | Sort-Object Step)) {
@@ -213,9 +293,12 @@ foreach ($rid in $runIds) {
     label = $runLabel
     frames = $stepFiles.Count
     snapshots = $snapFiles.Count
+    sessionId = $sessionId
+    hasEvents = $hasEvents
     dir = "runs/run-$rid"
   })
-  Write-Host "OK: built run=$rid label=$runLabel frames=$($stepFiles.Count) snapshots=$($snapFiles.Count)"
+  $evStr = if ($hasEvents) { "events=1" } else { "events=0" }
+  Write-Host "OK: built run=$rid label=$runLabel frames=$($stepFiles.Count) snapshots=$($snapFiles.Count) $evStr"
 }
 
 if ($runSummaries.Count -eq 0) { throw "No run outputs were built (unexpected)" }
@@ -242,11 +325,12 @@ $index.Add('<style>body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe 
 $index.Add('<h1>agent-browser-kotlin E2E evidence (latest)</h1>')
 $index.Add('<div class="muted">generated=' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' · latest run=' + $latestRun + ' · files under adb_dumps/e2e/latest/</div>')
 $index.Add('<p><a href="e2e-latest.mp4">e2e-latest.mp4</a> · <a href="report.html">latest report.html</a></p>')
-$index.Add('<h2>Runs</h2><table><thead><tr><th>runId</th><th>label</th><th>frames</th><th>snapshots</th><th>links</th></tr></thead><tbody>')
+$index.Add('<h2>Runs</h2><table><thead><tr><th>runId</th><th>label</th><th>frames</th><th>snapshots</th><th>events</th><th>links</th></tr></thead><tbody>')
 foreach ($r in ($runSummaries | Sort-Object runId)) {
   $rid = $r.runId
   $label = [System.Net.WebUtility]::HtmlEncode(($r.label -as [string]))
-  $index.Add('<tr><td>' + $rid + '</td><td>' + $label + '</td><td>' + $r.frames + '</td><td>' + $r.snapshots + '</td><td><a href="runs/run-' + $rid + '/e2e.mp4">mp4</a> · <a href="runs/run-' + $rid + '/report.html">report</a></td></tr>')
+  $events = if ($r.hasEvents) { 'yes' } else { 'no' }
+  $index.Add('<tr><td>' + $rid + '</td><td>' + $label + '</td><td>' + $r.frames + '</td><td>' + $r.snapshots + '</td><td>' + $events + '</td><td><a href="runs/run-' + $rid + '/e2e.mp4">mp4</a> · <a href="runs/run-' + $rid + '/report.html">report</a></td></tr>')
 }
 $index.Add('</tbody></table>')
 $index.Add('<p class="muted">Tip: open <code>index.html</code> directly in a desktop browser for fast review.</p>')
