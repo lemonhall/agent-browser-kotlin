@@ -94,6 +94,28 @@ if ($p3.ExitCode -ne 0) {
 
 function HtmlEncode([string]$s) { [System.Net.WebUtility]::HtmlEncode($s) }
 
+function EncodeAndHighlight([string]$s) {
+  $enc = HtmlEncode $s
+  if (-not $enc) { return "" }
+  $enc = $enc.Replace("agree: true", "<mark class='ok'>agree: true</mark>")
+  $enc = $enc.Replace("agree: false", "<mark class='bad'>agree: false</mark>")
+  $enc = $enc.Replace("ref_not_found", "<mark class='warn'>ref_not_found</mark>")
+  $enc = $enc.Replace("truncated=true", "<mark class='warn'>truncated=true</mark>")
+  $enc = $enc.Replace("blocked by another element", "<mark class='warn'>blocked by another element</mark>")
+  return $enc
+}
+
+function Try-ParseJson([string]$line) {
+  if (-not $line) { return $null }
+  $t = $line.Trim()
+  if (-not $t) { return $null }
+  try {
+    return $t | ConvertFrom-Json -AsHashtable -ErrorAction Stop
+  } catch {
+    return $null
+  }
+}
+
 function Write-RunReportHtml {
   param(
     [string]$OutDir,
@@ -106,7 +128,7 @@ function Write-RunReportHtml {
   $sb.Add('<!doctype html>')
   $sb.Add('<html><head><meta charset="utf-8" />')
   $sb.Add("<title>$([System.Net.WebUtility]::HtmlEncode($title))</title>")
-  $sb.Add('<style>body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:24px;line-height:1.35} .run{color:#334155} img{max-width:420px;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(2,6,23,.08)} pre{white-space:pre-wrap;background:#0b1020;color:#e2e8f0;padding:12px;border-radius:10px;overflow:auto} a{color:#2563eb;text-decoration:none} a:hover{text-decoration:underline} .grid{display:grid;grid-template-columns:460px 1fr;gap:16px;align-items:start;margin:18px 0} .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#475569} details{margin:12px 0} summary{cursor:pointer;color:#0f172a}</style>')
+  $sb.Add('<style>body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:24px;line-height:1.35} .run{color:#334155} img{max-width:420px;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(2,6,23,.08)} pre{white-space:pre-wrap;background:#0b1020;color:#e2e8f0;padding:12px;border-radius:10px;overflow:auto} a{color:#2563eb;text-decoration:none} a:hover{text-decoration:underline} .grid{display:grid;grid-template-columns:460px 1fr;gap:16px;align-items:start;margin:18px 0} .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#475569} details{margin:12px 0} summary{cursor:pointer;color:#0f172a} table{border-collapse:collapse;width:100%;margin:8px 0} th,td{border-bottom:1px solid #e2e8f0;padding:8px 10px;text-align:left;font-size:13px} th{color:#0f172a} mark{padding:1px 4px;border-radius:6px} mark.ok{background:#10b981;color:#052e16} mark.bad{background:#ef4444;color:#450a0a} mark.warn{background:#f59e0b;color:#451a03}</style>')
   $sb.Add('</head><body>')
   $sb.Add("<h1>$([System.Net.WebUtility]::HtmlEncode($title))</h1>")
   $labelEsc = [System.Net.WebUtility]::HtmlEncode(($Label -as [string]))
@@ -127,6 +149,105 @@ function Write-RunReportHtml {
     if ($sessionId) { $sb.Add('<div class="meta"><span>session_id=' + (HtmlEncode $sessionId) + '</span></div>') }
     if (Test-Path $eventsPath) {
       $sb.Add('<div class="meta"><a href="session/events.jsonl">events.jsonl</a> · <a href="session/meta.json">meta.json</a></div>')
+
+      # Human-friendly agent summary (tool_calls / final_text / usage).
+      $toolUseCount = 0
+      $toolUseByName = @{}
+      $toolTimeline = New-Object System.Collections.Generic.List[string]
+      $assistantMsgs = New-Object System.Collections.Generic.List[string]
+      $finalText = $null
+      $stopReason = $null
+      $usageStr = $null
+      $stepsCount = $null
+      try {
+        $allLines = Get-Content -Path $eventsPath -TotalCount 5000 -ErrorAction Stop
+        foreach ($line in $allLines) {
+          $ev = Try-ParseJson $line
+          if (-not $ev) { continue }
+          $t = $ev["type"]
+          $seq = $ev["seq"]
+          if ($t -eq "tool.use") {
+            $toolUseCount += 1
+            $nm = $ev["name"]
+            if ($nm) {
+              if (-not $toolUseByName.ContainsKey($nm)) { $toolUseByName[$nm] = 0 }
+              $toolUseByName[$nm] = [int]$toolUseByName[$nm] + 1
+            }
+            $inJson = ""
+            try { $inJson = ($ev["input"] | ConvertTo-Json -Depth 6 -Compress) } catch { $inJson = "" }
+            if ($inJson.Length -gt 260) { $inJson = $inJson.Substring(0, 260) + "…" }
+            $toolTimeline.Add(("#" + $seq + " tool.use " + $nm + " " + $inJson).Trim())
+          } elseif ($t -eq "tool.result") {
+            $isErr = $ev["is_error"]
+            $outKind = ""
+            try {
+              $out = $ev["output"]
+              if ($out -is [hashtable]) {
+                if ($out.ContainsKey("type")) { $outKind = $out["type"] }
+                elseif ($out.ContainsKey("ok")) { $outKind = "ok=" + $out["ok"] }
+              }
+            } catch { }
+            $toolTimeline.Add(("#" + $seq + " tool.result is_error=" + $isErr + " " + $outKind).Trim())
+          } elseif ($t -eq "assistant.message") {
+            $msg = $ev["text"]
+            if ($msg) {
+              $m = $msg -as [string]
+              if ($m.Length -gt 240) { $m = $m.Substring(0, 240) + "…" }
+              $assistantMsgs.Add(("#" + $seq + " assistant: " + $m).Trim())
+            }
+          } elseif ($t -eq "result") {
+            $finalText = $ev["final_text"]
+            $stopReason = $ev["stop_reason"]
+            $stepsCount = $ev["steps"]
+            try {
+              $u = $ev["usage"]
+              if ($u -is [hashtable]) {
+                $usageStr = "in=" + $u["input_tokens"] + " out=" + $u["output_tokens"] + " total=" + $u["total_tokens"]
+              }
+            } catch { }
+          }
+        }
+      } catch { }
+
+      if ($toolUseCount -gt 0 -or $finalText) {
+        $sb.Add('<h3>Agent Summary</h3>')
+        $summaryBits = New-Object System.Collections.Generic.List[string]
+        if ($toolUseCount -gt 0) { $summaryBits.Add("tool_uses=$toolUseCount") }
+        if ($stepsCount) { $summaryBits.Add("steps=$stepsCount") }
+        if ($stopReason) { $summaryBits.Add("stop_reason=$stopReason") }
+        if ($usageStr) { $summaryBits.Add("usage($usageStr)") }
+        $sb.Add('<div class="meta"><span>' + (HtmlEncode ($summaryBits -join " · ")) + '</span></div>')
+        if ($finalText) {
+          $sb.Add('<details><summary>final_text</summary>')
+          $sb.Add("<pre>$([System.Net.WebUtility]::HtmlEncode(($finalText -as [string])))</pre>")
+          $sb.Add('</details>')
+        }
+
+        if ($toolUseByName.Count -gt 0) {
+          $sb.Add('<details><summary>tool_uses by name</summary>')
+          $sb.Add('<table><thead><tr><th>tool</th><th>count</th></tr></thead><tbody>')
+          foreach ($k in ($toolUseByName.Keys | Sort-Object)) {
+            $sb.Add('<tr><td><code>' + (HtmlEncode $k) + '</code></td><td>' + $toolUseByName[$k] + '</td></tr>')
+          }
+          $sb.Add('</tbody></table>')
+          $sb.Add('</details>')
+        }
+
+        if ($toolTimeline.Count -gt 0) {
+          $sb.Add('<details><summary>tool_calls timeline (tool.use/tool.result)</summary>')
+          $timelineText = $toolTimeline -join "`n"
+          $sb.Add("<pre>$([System.Net.WebUtility]::HtmlEncode($timelineText))</pre>")
+          $sb.Add('</details>')
+        }
+
+        if ($assistantMsgs.Count -gt 0) {
+          $sb.Add('<details><summary>assistant messages</summary>')
+          $assistantText = $assistantMsgs -join "`n"
+          $sb.Add("<pre>$([System.Net.WebUtility]::HtmlEncode($assistantText))</pre>")
+          $sb.Add('</details>')
+        }
+      }
+
       $preview = ''
       try {
         $lines = Get-Content -Path $eventsPath -TotalCount 200 -ErrorAction Stop
@@ -158,7 +279,7 @@ function Write-RunReportHtml {
       $txtPath = Join-Path $OutDir $txtRel
       $txt = ''
       try { $txt = Get-Content -Raw -Path $txtPath -ErrorAction Stop } catch { $txt = "[missing snapshot txt: $($txtPath)]" }
-      $sb.Add("<pre>$([System.Net.WebUtility]::HtmlEncode($txt))</pre>")
+      $sb.Add("<pre>$(EncodeAndHighlight $txt)</pre>")
     } else {
       $sb.Add('<div class="meta">no snapshot for this step</div>')
     }

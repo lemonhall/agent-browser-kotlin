@@ -16,6 +16,7 @@
     <div class="banner" id="nav2Banner">NAV2: You are on page 2</div>
 
     <div class="card">
+      <p id="loads">loads: 0</p>
       <p id="status">status: nav2</p>
       <button id="nav2Btn">Nav2 Button</button>
       <a href="nav1.html">← Back</a>
@@ -23,6 +24,20 @@
 
     <script>
       (function () {
+        function getLoads() {
+          try {
+            var m = /(?:^|;)nav2Loads=(\d+)(?:;|$)/.exec(window.name || '');
+            if (!m) return 0;
+            var n = parseInt(m[1], 10);
+            return isFinite(n) ? n : 0;
+          } catch (e) {
+            return 0;
+          }
+        }
+        var loads = getLoads() + 1;
+        window.name = 'nav2Loads=' + loads;
+        document.getElementById('loads').textContent = 'loads: ' + loads;
+
         document.getElementById('nav2Btn').addEventListener('click', function () {
           document.getElementById('status').textContent = 'status: nav2 clicked';
         });
@@ -30,4 +45,3 @@
     </script>
   </body>
 </html>
-

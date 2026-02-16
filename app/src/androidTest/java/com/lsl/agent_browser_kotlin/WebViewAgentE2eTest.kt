@@ -182,4 +182,154 @@ class WebViewAgentE2eTest {
             assertTrue("expected finalText to start with OK", result0.finalText.trim().startsWith("OK"))
         }
     }
+
+    @Test
+    fun agent_tool_loop_can_use_navigation_tools_and_leave_readable_evidence() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+
+        val args = InstrumentationRegistry.getArguments()
+        val apiKey = args.getString("OPENAI_API_KEY").orEmpty().trim()
+        val baseUrl = args.getString("OPENAI_BASE_URL").orEmpty().trim().ifEmpty { "https://api.openai.com/v1" }
+        val model = args.getString("MODEL").orEmpty().trim().ifEmpty { "gpt-5.2" }
+        val protocol = args.getString("OPENAI_PROTOCOL").orEmpty().trim().lowercase().ifEmpty { "responses" }
+        assumeTrue("OPENAI_API_KEY missing; skipping real-agent E2E", apiKey.isNotEmpty())
+
+        val downloadFramesRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
+        val runPrefix = "run-${System.currentTimeMillis()}-agent-nav"
+
+        ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
+            lateinit var webView: WebView
+            scenario.onActivity { webView = it.webView }
+
+            loadUrlAndWait(scenario, "about:blank")
+
+            clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
+            stepDelay()
+
+            runBlocking { evalJs(webView, AgentBrowser.getScript()) }
+            scenario.onActivity { it.setSnapshotText("[BOOT] injected agent-browser.js\n\nrunPrefix=$runPrefix") }
+
+            val artifacts =
+                E2eArtifacts(
+                    instrumentation = instrumentation,
+                    device = device,
+                    scenario = scenario,
+                    runPrefix = runPrefix,
+                    framesRelativePath = downloadFramesRelativePath,
+                    snapshotsRelativePath = downloadSnapshotsRelativePath,
+                    nextStep = 1,
+                )
+            artifacts.captureFrame()
+            stepDelay()
+
+            val storeRoot = File(instrumentation.targetContext.filesDir, ".agents").absolutePath
+            val sessionStore = FileSessionStore.system(storeRoot)
+
+            val allowEval =
+                args.getString("ENABLE_WEB_EVAL")
+                    .orEmpty()
+                    .trim()
+                    .lowercase() in setOf("1", "true", "yes", "y")
+            val runtime = WebToolRuntime(webView = webView, artifacts = artifacts, allowEval = allowEval)
+            val tools = ToolRegistry(OpenAgenticWebTools.all(runtime))
+            val provider =
+                when (protocol) {
+                    "legacy", "chat", "chat-completions" -> OpenAIChatCompletionsHttpProvider(baseUrl = baseUrl)
+                    "responses", "sse" -> OpenAIResponsesSseHttpProvider(baseUrl = baseUrl)
+                    else -> OpenAIResponsesSseHttpProvider(baseUrl = baseUrl)
+                }
+
+            val options =
+                OpenAgenticOptions(
+                    provider = provider,
+                    model = model,
+                    apiKey = apiKey,
+                    cwd = instrumentation.targetContext.filesDir.absolutePath.toPath(),
+                    projectDir = instrumentation.targetContext.filesDir.absolutePath.toPath(),
+                    tools = tools,
+                    allowedTools = tools.names().toSet(),
+                    permissionGate = PermissionGate.bypass(),
+                    sessionStore = sessionStore,
+                    maxSteps = 22,
+                )
+
+            val prompt =
+                """
+                你在一个离线网页（Android WebView）里执行任务，只能使用提供的 web_* tools。
+
+                规则：
+                - 任何元素操作都必须来自“最新一次 web_snapshot”的 ref；页面变化后 ref 可能失效，必要时先重新 snapshot。
+                - 不要尝试获取整页 outerHTML；优先用 snapshot 文本定位，再用 query 读取必要信息。
+
+                目标（按顺序执行）：
+                1) web_open(url="file:///android_asset/e2e/nav1.html")
+                2) web_snapshot(interactive_only=false)，确认标题包含 "Navigation Fixture: Page 1"
+                3) web_click 名称为 "Primary Action" 的按钮
+                4) web_snapshot(interactive_only=false)，确认页面文本包含 "status: clicked on nav1"
+
+                5) web_open(url="file:///android_asset/e2e/nav2.html")
+                6) web_snapshot(interactive_only=false)，确认页面文本包含 "NAV2: You are on page 2" 且包含 "loads: 1"
+                7) web_reload()
+                8) web_wait(ms=800)
+                9) web_snapshot(interactive_only=false)，确认页面文本包含 "loads: 2"
+
+                10) web_back()
+                11) web_snapshot(interactive_only=false)，确认又回到 "Navigation Fixture: Page 1"
+                12) web_forward()
+                13) web_snapshot(interactive_only=false)，确认回到 "NAV2: You are on page 2"
+
+                完成后仅回复：OK
+                """.trimIndent()
+
+            val events = runBlocking { OpenAgenticSdk.query(prompt = prompt, options = options).toList() }
+            val init = events.filterIsInstance<SystemInit>().firstOrNull()
+            val result = events.filterIsInstance<Result>().lastOrNull()
+            val toolUses = events.filterIsInstance<ToolUse>()
+            val assistantMessages = events.filterIsInstance<AssistantMessage>()
+
+            assertNotNull("missing SystemInit", init)
+            assertNotNull("missing Result", result)
+            val init0 = init ?: throw AssertionError("missing SystemInit")
+            val result0 = result ?: throw AssertionError("missing Result")
+            runtime.writeSessionId(init0.sessionId)
+            // Persist sessions/events for human review even when assertions fail.
+            runCatching {
+                val sessionDir = File(storeRoot, "sessions/${init0.sessionId}")
+                val eventsPath = File(sessionDir, "events.jsonl")
+                val metaPath = File(sessionDir, "meta.json")
+                if (eventsPath.exists()) artifacts.writeTextArtifact("${runPrefix}-events.jsonl", eventsPath.readText(Charsets.UTF_8), minBytes = 16)
+                if (metaPath.exists()) artifacts.writeTextArtifact("${runPrefix}-meta.json", metaPath.readText(Charsets.UTF_8), minBytes = 16)
+            }
+            artifacts.setUiText(
+                "[AGENT] finished\n\nprovider=${provider.name}\nprotocol=$protocol\n\nsession_id=${init0.sessionId}\n" +
+                    "tool_uses=${toolUses.size}\n" +
+                    "assistant_msgs=${assistantMessages.size}\n\n" +
+                    "finalText=${result0.finalText.take(400)}",
+            )
+            artifacts.captureFrame()
+
+            assertTrue("expected tool uses, got 0", toolUses.isNotEmpty())
+            val usedTools = toolUses.map { it.name }.toSet()
+            assertTrue("expected web_open to be used", usedTools.contains("web_open"))
+            assertTrue("expected web_back to be used", usedTools.contains("web_back"))
+            assertTrue("expected web_forward to be used", usedTools.contains("web_forward"))
+            assertTrue("expected web_reload to be used", usedTools.contains("web_reload"))
+
+            val finalRaw = runBlocking { evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false))) }
+            val finalRender = AgentBrowser.renderSnapshot(finalRaw, RenderOptions(maxCharsTotal = 8000, maxNodes = 220, maxDepth = 14, compact = true))
+            artifacts.setUiText(
+                "[FINAL] agent completed\n\nsession_id=${init.sessionId}\n" +
+                    "tool_uses=${toolUses.size}\n\n" +
+                    finalRender.text,
+            )
+            val finalStep = artifacts.captureFrame()
+            artifacts.dumpSnapshotArtifacts(snapshotRaw = finalRaw, snapshotText = finalRender.text, step = finalStep)
+
+            assertTrue("expected NAV2 banner in final snapshot", finalRender.text.contains("NAV2: You are on page 2"))
+            assertTrue("expected finalText to start with OK", result0.finalText.trim().startsWith("OK"))
+        }
+    }
 }
