@@ -142,7 +142,13 @@ private class WebSnapshotTool(runtime: WebToolRuntime) :
     override suspend fun run(input: ToolInput, ctx: ToolContext): ToolOutput {
         val interactiveOnly = optionalBool(input, "interactive_only") ?: true
         val cursorInteractive = optionalBool(input, "cursor_interactive") ?: false
-        val scope = optionalString(input, "scope")?.trim()?.takeIf { it.isNotEmpty() }
+        val scopeRaw = optionalString(input, "scope")?.trim()
+        val scope =
+            when {
+                scopeRaw.isNullOrBlank() -> null
+                scopeRaw == "document.body" -> null
+                else -> scopeRaw
+            }
 
         val raw =
             runtime.eval(

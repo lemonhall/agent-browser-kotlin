@@ -193,6 +193,10 @@ function Try-PullAgentSession {
     if ($pEv.ExitCode -ne 0) { return $false }
     if (-not (Test-Path $eventsOut)) { return $false }
     if ((Get-Item $eventsOut).Length -lt 16) { return $false }
+    try {
+      $head = (Get-Content -Path $eventsOut -TotalCount 1 -ErrorAction SilentlyContinue) -as [string]
+      if ($head -and $head.TrimStart().StartsWith("run-as:")) { return $false }
+    } catch { }
 
     $pMeta = Start-Process -FilePath $adb -ArgumentList @("exec-out","run-as",$appPkg,"cat",("files/.agents/sessions/" + $sid + "/meta.json")) -NoNewWindow -PassThru -Wait -RedirectStandardOutput $metaOut -RedirectStandardError $errOut
     if ($pMeta.ExitCode -ne 0) { return $false }
@@ -264,9 +268,30 @@ foreach ($rid in $runIds) {
     try { $sessionId = (Get-Content -Raw -Path $sf0.FullName -ErrorAction SilentlyContinue).Trim() } catch { $sessionId = $null }
   }
 
+  $runSessionOut = Join-Path $runOut "session"
+  New-Item -ItemType Directory -Force -Path $runSessionOut | Out-Null
+
+  # Prefer session artifacts that were already written into Downloads by the test (works even if the app is uninstalled after tests).
+  $eventsFromDl = @(
+    Get-ChildItem -Path $snapshotsLocal -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -like "run-$rid*-events.jsonl*" } |
+      Sort-Object Name
+  ) | Select-Object -First 1
+  if ($eventsFromDl) {
+    Copy-Item -Force $eventsFromDl.FullName (Join-Path $runSessionOut "events.jsonl")
+  }
+  $metaFromDl = @(
+    Get-ChildItem -Path $snapshotsLocal -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -like "run-$rid*-meta.json*" } |
+      Sort-Object Name
+  ) | Select-Object -First 1
+  if ($metaFromDl) {
+    Copy-Item -Force $metaFromDl.FullName (Join-Path $runSessionOut "meta.json")
+  }
+
   $hasEvents = $false
-  if ($sessionId) {
-    $runSessionOut = Join-Path $runOut "session"
+  if ((Test-Path (Join-Path $runSessionOut "events.jsonl"))) { $hasEvents = $true }
+  if (-not $hasEvents -and $sessionId) {
     $hasEvents = Try-PullAgentSession -SessionId $sessionId -OutDir $runSessionOut
   }
 

@@ -1,0 +1,36 @@
+Pulling artifacts into E:\development\agent-browser-kotlin\adb_dumps\\e2e\20260216-165546
+/sdcard/Download/agent-browser-kotlin/e2e/frames/: 183 files pulled, 0 skipped. 19.1 MB/s (35711257 bytes in 1.785s)
+Detected runs: 31 (latest run=1771232093920)
+/sdcard/Download/agent-browser-kotlin/e2e/snapshots/: 174 files pulled, 0 skipped. 1.2 MB/s (696308 bytes in 0.551s)
+OK: built run=1771227507193 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771227556746 label= frames=16 snapshots=20 events=0
+OK: built run=1771227636890 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771227652758 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771227731944 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771227751150 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771227774562 label=nav frames=5 snapshots=4 events=0
+OK: built run=1771230447759 label=agent frames=1 snapshots=0 events=0
+OK: built run=1771230460743 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771230509360 label= frames=16 snapshots=20 events=0
+OK: built run=1771230589133 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771230604835 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771230683928 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771230703240 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771230726853 label=nav frames=5 snapshots=4 events=0
+OK: built run=1771231009427 label=agent frames=2 snapshots=0 events=1
+OK: built run=1771231020972 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771231069469 label= frames=16 snapshots=20 events=0
+OK: built run=1771231149163 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771231164995 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771231244103 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771231263565 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771231286837 label=nav frames=5 snapshots=4 events=0
+OK: built run=1771231763919 label=agent frames=12 snapshots=8 events=1
+OK: built run=1771231828531 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771231876963 label= frames=16 snapshots=20 events=0
+OK: built run=1771231956489 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771231972186 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771232051342 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771232070537 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771232093920 label=nav frames=5 snapshots=4 events=0
+OK: latest entrypoints: adb_dumps\\e2e\\latest\\index.html / report.html / e2e-latest.mp4

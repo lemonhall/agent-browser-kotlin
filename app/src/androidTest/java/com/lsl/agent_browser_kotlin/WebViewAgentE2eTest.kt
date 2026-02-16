@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import com.lsl.agent_browser_kotlin.agent.E2eArtifacts
 import com.lsl.agent_browser_kotlin.agent.OpenAgenticWebTools
+import com.lsl.agent_browser_kotlin.agent.OpenAIChatCompletionsHttpProvider
 import com.lsl.agent_browser_kotlin.agent.WebToolRuntime
 import com.lsl.agent_browser_kotlin.agent.clearOldFrames
 import com.lsl.agent_browser_kotlin.agent.clearOldSnapshots
@@ -23,7 +24,6 @@ import me.lemonhall.openagentic.sdk.events.AssistantMessage
 import me.lemonhall.openagentic.sdk.events.SystemInit
 import me.lemonhall.openagentic.sdk.events.ToolUse
 import me.lemonhall.openagentic.sdk.permissions.PermissionGate
-import me.lemonhall.openagentic.sdk.providers.OpenAIResponsesHttpProvider
 import me.lemonhall.openagentic.sdk.runtime.OpenAgenticOptions
 import me.lemonhall.openagentic.sdk.runtime.OpenAgenticSdk
 import me.lemonhall.openagentic.sdk.sessions.FileSessionStore
@@ -84,7 +84,7 @@ class WebViewAgentE2eTest {
 
             val runtime = WebToolRuntime(webView = webView, artifacts = artifacts)
             val tools = ToolRegistry(OpenAgenticWebTools.all(runtime))
-            val provider = OpenAIResponsesHttpProvider(baseUrl = baseUrl)
+            val provider = OpenAIChatCompletionsHttpProvider(baseUrl = baseUrl)
 
             val options =
                 OpenAgenticOptions(
