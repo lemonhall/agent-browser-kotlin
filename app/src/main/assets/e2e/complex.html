@@ -12,6 +12,7 @@
       .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin: 12px 0; }
       .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       input[type="text"] { padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 8px; min-width: 220px; }
+      select { padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }
       button { padding: 10px 12px; border: 1px solid #1d4ed8; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; }
       button.secondary { background: #111827; border-color: #111827; }
       ul { padding-left: 18px; }
@@ -42,16 +43,31 @@
         <div class="row">
           <label for="q" class="muted">Query:</label>
           <input id="q" type="text" placeholder="Search" aria-label="Search Input" />
+          <label for="mode" class="muted">Mode:</label>
+          <select id="mode" aria-label="Mode Select" onchange="setMode(this.value)">
+            <option value="alpha">alpha</option>
+            <option value="beta">beta</option>
+            <option value="gamma">gamma</option>
+          </select>
           <button id="btnApply" onclick="apply()">Apply</button>
           <button id="btnToggle" class="secondary" onclick="toggleHidden()">Toggle Hidden</button>
         </div>
 
         <div id="result" class="muted" aria-label="Result Text">result: (empty)</div>
+        <p id="agreeText" class="muted">agree: false</p>
+
+        <div class="row" style="margin-top: 10px;">
+          <label class="muted" style="display:flex; align-items:center; gap: 8px;">
+            <input id="agree" type="checkbox" aria-label="Agree Checkbox" onchange="setAgree(this.checked)" />
+            Agree Checkbox
+          </label>
+        </div>
       </section>
 
       <section class="card" aria-label="List Section">
         <h2>Items</h2>
         <ul id="items">
+          <li id="modeLi">mode: alpha</li>
           <li>alpha</li>
           <li>bravo</li>
           <li>charlie</li>
@@ -62,7 +78,7 @@
       <section class="card hidden" id="hiddenBox" aria-label="Hidden Box">
         <h2>Hidden Box</h2>
         <p>This section is toggled by JS.</p>
-        <button id="btnHidden" onclick="document.getElementById('statusPill').textContent='hidden-clicked'">Hidden Action</button>
+        <button id="btnHidden" onclick="document.getElementById('statusPill').textContent='hidden-clicked'; document.getElementById('h1Title').textContent='hidden-clicked'">Hidden Action</button>
       </section>
 
       <section class="card" aria-hidden="true" aria-label="Aria Hidden">
@@ -90,7 +106,14 @@
         if (el.classList.contains('hidden')) el.classList.remove('hidden'); else el.classList.add('hidden');
         document.getElementById('statusPill').textContent = el.classList.contains('hidden') ? 'hidden-off' : 'hidden-on';
       }
+      function setMode(mode) {
+        document.getElementById('statusPill').textContent = 'mode:' + mode;
+        document.getElementById('result').textContent = 'result: ' + (document.getElementById('q').value || '(empty)') + ' / ' + mode;
+        document.getElementById('modeLi').textContent = 'mode: ' + mode;
+      }
+      function setAgree(checked) {
+        document.getElementById('agreeText').textContent = 'agree: ' + (checked ? 'true' : 'false');
+      }
     </script>
   </body>
 </html>
-

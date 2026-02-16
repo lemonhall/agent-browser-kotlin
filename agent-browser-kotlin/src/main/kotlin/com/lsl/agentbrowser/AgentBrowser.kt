@@ -36,6 +36,12 @@ object AgentBrowser {
             ActionKind.CLICK -> "click"
             ActionKind.FILL -> "fill"
             ActionKind.SELECT -> "select"
+            ActionKind.CHECK -> "check"
+            ActionKind.UNCHECK -> "uncheck"
+            ActionKind.FOCUS -> "focus"
+            ActionKind.HOVER -> "hover"
+            ActionKind.SCROLL_INTO_VIEW -> "scroll_into_view"
+            ActionKind.CLEAR -> "clear"
         }
 
         val payloadJson = when (payload) {
@@ -61,6 +67,17 @@ object AgentBrowser {
     fun parseAction(json: String): ActionResult {
         val normalized = normalizeJsEvalResult(json)
         return AgentBrowser.json.decodeFromString<ActionResult>(normalized)
+    }
+
+    fun queryJs(ref: String, kind: QueryKind, payload: QueryPayload = QueryPayload()): String {
+        val payloadJson = json.encodeToString(payload)
+        val refEscaped = ref.replace("\\", "\\\\").replace("'", "\\'")
+        return "JSON.stringify(window.__agentBrowser.query('$refEscaped','${kind.wire}',$payloadJson))"
+    }
+
+    fun parseQuery(json: String): QueryResult {
+        val normalized = normalizeJsEvalResult(json)
+        return AgentBrowser.json.decodeFromString<QueryResult>(normalized)
     }
 }
 
@@ -154,14 +171,14 @@ private class SnapshotRenderer(
                     printed = true
                 }
             } else if (isPrintableLeaf) {
-                val leafLine = buildLeafLine(indent, roleOrTag, displayText, ref)
+                val leafLine = buildLeafLine(indent, roleOrTag, displayText, ref, node.attrs)
                 if (appendLine(leafLine)) {
                     nodesRendered++
                     printed = true
                 }
             }
         } else if (isLeafLike && isPrintableLeaf) {
-            val leafLine = buildLeafLine(indent, roleOrTag, displayText, ref)
+            val leafLine = buildLeafLine(indent, roleOrTag, displayText, ref, node.attrs)
             if (appendLine(leafLine)) {
                 nodesRendered++
                 printed = true
@@ -189,13 +206,32 @@ private class SnapshotRenderer(
         return printed || anyChildPrinted
     }
 
-    private fun buildLeafLine(indent: String, roleOrTag: String, displayText: String?, ref: String?): String {
+    private fun buildLeafLine(
+        indent: String,
+        roleOrTag: String,
+        displayText: String?,
+        ref: String?,
+        attrs: Map<String, String>,
+    ): String {
         val textPart = displayText?.let { " \"${sanitizeQuotes(it)}\"" } ?: ""
+        val attrsPart = buildAttrsPart(attrs)
         val refPart = ref?.let { " [ref=$it]" } ?: ""
-        return "$indent- $roleOrTag$textPart$refPart"
+        return "$indent- $roleOrTag$textPart$attrsPart$refPart"
     }
 
     private fun sanitizeQuotes(text: String): String = text.replace("\"", "\\\"")
+
+    private fun buildAttrsPart(attrs: Map<String, String>): String {
+        if (attrs.isEmpty()) return ""
+        val keys = listOf("href", "type", "placeholder", "value", "name", "aria-label")
+        val parts = keys.mapNotNull { key ->
+            val value = attrs[key]?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val shortened = shorten(value, 24)
+            "$key=\"${sanitizeQuotes(shortened)}\""
+        }
+        if (parts.isEmpty()) return ""
+        return " (" + parts.joinToString(separator = " ") + ")"
+    }
 
     private fun appendLine(line: String): Boolean {
         if (truncated) return false

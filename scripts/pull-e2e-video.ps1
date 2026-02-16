@@ -30,12 +30,6 @@ New-Item -ItemType Directory -Force -Path $latestDir | Out-Null
 
 Write-Host "Pulling artifacts into $latestDir"
 
-& $adb pull $deviceMp4 (Join-Path $latestDir "e2e-latest.mp4") 2>$null | Out-Null
-if (Test-Path (Join-Path $latestDir "e2e-latest.mp4")) {
-  Write-Host "OK: pulled mp4: adb_dumps\\e2e\\latest\\e2e-latest.mp4"
-  exit 0
-}
-
 $framesLocal = Join-Path $latestDir "frames"
 New-Item -ItemType Directory -Force -Path $framesLocal | Out-Null
 & $adb pull $deviceFramesDir $framesLocal | Out-Null
@@ -62,3 +56,5 @@ $outMp4 = Join-Path $latestDir "e2e-latest.mp4"
 & $ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i $concat -vsync vfr -pix_fmt yuv420p $outMp4 | Out-Null
 
 Write-Host "OK: built mp4 from frames: adb_dumps\\e2e\\latest\\e2e-latest.mp4"
+
+& $adb pull $deviceMp4 (Join-Path $latestDir "device-e2e-latest.mp4") 2>$null | Out-Null

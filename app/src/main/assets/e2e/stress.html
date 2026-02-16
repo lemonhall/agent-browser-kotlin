@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>agent-browser-kotlin Stress Fixture</title>
+    <style>
+      body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; }
+      header { padding: 12px 14px; background: #111827; color: #e5e7eb; }
+      main { padding: 14px; }
+      .row { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+      input { padding: 10px 10px; border: 1px solid #cbd5e1; border-radius: 8px; min-width: 220px; }
+      button { padding: 10px 12px; border: 1px solid #1d4ed8; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; }
+      .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: white; }
+      .muted { color:#64748b; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <strong>Stress Fixture</strong>
+        <span id="pill" class="muted">ready</span>
+      </div>
+    </header>
+    <main>
+      <div class="row">
+        <label for="q" class="muted">Query:</label>
+        <input id="q" placeholder="Search" />
+        <button id="btn" onclick="document.getElementById('pill').textContent='clicked'">Click</button>
+      </div>
+      <div class="muted">Below is a large non-interactive DOM region. snapshot(interactiveOnly=true) should stay small.</div>
+      <div id="grid" class="grid"></div>
+    </main>
+    <script>
+      (function () {
+        var grid = document.getElementById('grid');
+        var total = 1200;
+        for (var i = 0; i < total; i++) {
+          var card = document.createElement('div');
+          card.className = 'card';
+
+          var h = document.createElement('div');
+          h.textContent = 'Card #' + (i + 1);
+          h.style.fontWeight = '600';
+
+          var p = document.createElement('div');
+          p.className = 'muted';
+          p.textContent = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' + i;
+
+          var s = document.createElement('div');
+          s.className = 'muted';
+          s.textContent = 'no interactive elements here';
+
+          card.appendChild(h);
+          card.appendChild(p);
+          card.appendChild(s);
+          grid.appendChild(card);
+        }
+      })();
+    </script>
+  </body>
+</html>
+

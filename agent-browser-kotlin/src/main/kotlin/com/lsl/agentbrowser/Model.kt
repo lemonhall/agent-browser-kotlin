@@ -71,6 +71,12 @@ enum class ActionKind {
     CLICK,
     FILL,
     SELECT,
+    CHECK,
+    UNCHECK,
+    FOCUS,
+    HOVER,
+    SCROLL_INTO_VIEW,
+    CLEAR,
 }
 
 @Serializable
@@ -94,6 +100,32 @@ data class ActionResult(
     val type: String,
     val ref: String? = null,
     val action: String? = null,
+    val meta: Meta? = null,
+    val error: JsError? = null,
+)
+
+enum class QueryKind(val wire: String) {
+    TEXT("text"),
+    ATTRS("attrs"),
+    VALUE("value"),
+    HTML("html"),
+    OUTER_HTML("outerHTML"),
+    COMPUTED_STYLES("computed_styles"),
+}
+
+@Serializable
+data class QueryPayload(
+    val limitChars: Int = 4000,
+)
+
+@Serializable
+data class QueryResult(
+    val ok: Boolean,
+    val type: String,
+    val ref: String? = null,
+    val kind: String? = null,
+    val value: String? = null,
+    val truncated: Boolean? = null,
     val meta: Meta? = null,
     val error: JsError? = null,
 )

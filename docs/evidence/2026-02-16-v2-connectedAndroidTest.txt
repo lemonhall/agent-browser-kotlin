@@ -1,0 +1,31 @@
+Date: 2026-02-16
+
+Goal:
+  v2 E2E (real device WebView) with human-visible evidence (frames -> mp4),
+  plus perf/size baseline for REQ-0002-002 (offline stress fixture).
+
+Commands (PowerShell):
+  .\gradlew :agent-browser-kotlin:test --no-daemon
+  .\gradlew :app:connectedAndroidTest --no-daemon
+  pwsh -File .\scripts\pull-e2e-video.ps1
+
+Key assertions covered in instrumentation test (offline assets):
+  - snapshot(interactiveOnly=false) skips aria-hidden + display:none subtree
+  - fill(input) -> re-snapshot shows new list item "hello"
+  - select(select, values=["beta"]) -> re-snapshot shows "mode: beta"
+  - click(Toggle Hidden) -> re-snapshot shows "Hidden Action"
+  - click(Hidden Action) -> re-snapshot shows heading "hidden-clicked"
+  - stress fixture: snapshot(interactiveOnly=true) enforces jsonBytes < 100KB and logs jsTimeMs
+
+Artifacts:
+  - Device frames:
+      /sdcard/Download/agent-browser-kotlin/e2e/frames/step-*.png
+  - Local video (built from frames):
+      adb_dumps\e2e\latest\e2e-latest.mp4
+
+Perf/size evidence (from Gradle connected test logcat):
+  - Source:
+      app/build/outputs/androidTest-results/connected/debug/RTE-AL00 - 12/logcat-com.lsl.agent_browser_kotlin.WebViewE2eTest-snapshot_fill_click_resnapshot_sees_dom_change.txt
+  - Observed:
+      [STEP 7] stress snapshot jsonBytes=804 jsTimeMs=33
+

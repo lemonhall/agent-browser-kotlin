@@ -19,26 +19,32 @@
     return str.slice(0, Math.max(0, maxLen - 1)) + '…';
   }
 
-  function isHiddenByStyle(el) {
-    try {
-      var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
-      if (!style) return false;
-      if (style.display === 'none') return true;
-      if (style.visibility === 'hidden') return true;
-      if (style.opacity === '0') return true;
-      return false;
-    } catch (_e) {
-      return false;
-    }
-  }
-
   function isVisible(el) {
     if (!el || el.nodeType !== 1) return false;
     if (el.hasAttribute && el.hasAttribute('hidden')) return false;
     var ariaHidden = el.getAttribute && el.getAttribute('aria-hidden');
     if (ariaHidden === 'true') return false;
-    if (isHiddenByStyle(el)) return false;
-    // offsetParent can be null for fixed-position elements; keep as a soft signal.
+
+    var style = null;
+    try {
+      style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    } catch (_e0) {
+      style = null;
+    }
+    if (style) {
+      if (style.display === 'none') return false;
+      if (style.visibility === 'hidden') return false;
+      if (parseFloat(style.opacity) === 0) return false;
+    }
+
+    // NOTE: body/html often have offsetParent === null; treat them as visible roots.
+    var tag = (el.tagName || '').toLowerCase();
+    if (tag !== 'body' && tag !== 'html') {
+      try {
+        var pos = style ? style.position : '';
+        if (el.offsetParent === null && pos !== 'fixed') return false;
+      } catch (_e2) {}
+    }
     return true;
   }
 
@@ -131,6 +137,15 @@
     } catch (_e) {}
   }
 
+  function clearOldRefs() {
+    try {
+      var old = document.querySelectorAll('[data-agent-ref]');
+      for (var i = 0; i < old.length; i++) {
+        try { old[i].removeAttribute('data-agent-ref'); } catch (_e) {}
+      }
+    } catch (_e2) {}
+  }
+
   function findByRef(ref) {
     try {
       return document.querySelector('[data-agent-ref="' + ref.replace(/"/g, '\\"') + '"]');
@@ -155,24 +170,40 @@
 
   function dispatchMouseClick(el) {
     try {
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+    } catch (_e0) {}
+    try {
       el.focus && el.focus();
     } catch (_e) {}
     try {
-      if (typeof el.click === 'function') {
-        el.click();
-        return;
-      }
-    } catch (_e) {}
-    try {
       var opts = { bubbles: true, cancelable: true, view: window };
+      var rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+      if (rect) {
+        opts.clientX = rect.left + rect.width / 2;
+        opts.clientY = rect.top + rect.height / 2;
+        opts.button = 0;
+      }
+      // Try a more "realistic" sequence first (align PRD intent), then fall back to el.click().
+      if (typeof PointerEvent !== 'undefined') {
+        el.dispatchEvent(new PointerEvent('pointerdown', opts));
+        el.dispatchEvent(new PointerEvent('pointerup', opts));
+      }
       el.dispatchEvent(new MouseEvent('mousedown', opts));
       el.dispatchEvent(new MouseEvent('mouseup', opts));
       el.dispatchEvent(new MouseEvent('click', opts));
+      return;
     } catch (_e) {}
+    try {
+      if (typeof el.click === 'function') el.click();
+    } catch (_e2) {}
   }
 
   function setValueWithEvents(el, value) {
     var v = safeString(value);
+    try {
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+    } catch (_e0) {}
+    try { el.focus && el.focus(); } catch (_e1) {}
     try {
       var proto = el instanceof HTMLInputElement ? HTMLInputElement.prototype : (el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : null);
       var desc = proto ? Object.getOwnPropertyDescriptor(proto, 'value') : null;
@@ -194,6 +225,9 @@
       var interactiveOnly = cfg.interactiveOnly !== false;
       var cursorInteractive = cfg.cursorInteractive === true;
       var scopeSelector = cfg.scope || null;
+
+      var started = now();
+      clearOldRefs();
 
       var rootEl = null;
       try {
@@ -222,7 +256,6 @@
 
         var tag = (el.tagName || '').toLowerCase();
         var role = computeRole(tag, el);
-        var name = computeName(el, tag, role, maxTextPerNode);
         var interactive = isInteractive(el, tag, role, cursorInteractive);
 
         var isContent =
@@ -233,6 +266,10 @@
           role === 'list';
 
         var includeNode = interactive || (!interactiveOnly && (isContent || role === 'main' || role === 'navigation'));
+        var name = null;
+        if (interactive || (!interactiveOnly && isContent)) {
+          name = computeName(el, tag, role, maxTextPerNode);
+        }
         if (!includeNode) {
           // Even if we don't include this node, its descendants may contain interactive/content.
           var keptChildren = [];
@@ -277,6 +314,7 @@
       }
 
       var tree = walk(rootEl, 0) || { tag: 'body', role: 'document', children: [] };
+      stats.jsTimeMs = now() - started;
       return {
         ok: true,
         type: 'snapshot',
@@ -302,6 +340,73 @@
       if (k === 'fill') {
         setValueWithEvents(el, payload.value);
         return makeOk('action', { ref: r, action: k });
+      }
+
+      if (k === 'select') {
+        try {
+          if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+        } catch (_e0) {}
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag !== 'select') return makeErr('action', { ref: r, action: k }, 'not_a_select', 'ref ' + r + ' is not a <select>');
+        var raw = payload.values != null ? payload.values : payload.value;
+        var values = Array.isArray(raw) ? raw : [raw];
+        var normalized = [];
+        for (var i = 0; i < values.length; i++) normalized.push(safeString(values[i]));
+        try {
+          for (var j = 0; j < el.options.length; j++) {
+            var opt = el.options[j];
+            var optText = '';
+            try { optText = safeString(opt.textContent).trim(); } catch (_e3) { optText = ''; }
+            opt.selected = normalized.indexOf(safeString(opt.value)) >= 0 || normalized.indexOf(optText) >= 0;
+          }
+        } catch (_e4) {}
+        try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (_e5) {}
+        return makeOk('action', { ref: r, action: k, values: normalized });
+      }
+
+      if (k === 'clear') {
+        setValueWithEvents(el, '');
+        return makeOk('action', { ref: r, action: k });
+      }
+
+      if (k === 'focus') {
+        try { el.focus && el.focus(); } catch (_e6) {}
+        return makeOk('action', { ref: r, action: k });
+      }
+
+      if (k === 'hover') {
+        try {
+          if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+        } catch (_e7) {}
+        try { el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, view: window })); } catch (_e8) {}
+        try { el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window })); } catch (_e9) {}
+        return makeOk('action', { ref: r, action: k });
+      }
+
+      if (k === 'scroll_into_view') {
+        try {
+          if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } catch (_e10) {}
+        return makeOk('action', { ref: r, action: k });
+      }
+
+      if (k === 'check' || k === 'uncheck') {
+        var t = (attr(el, 'type') || '').toLowerCase();
+        var isCheckbox = (el.tagName || '').toLowerCase() === 'input' && t === 'checkbox';
+        var isRadio = (el.tagName || '').toLowerCase() === 'input' && t === 'radio';
+        if (!isCheckbox && !isRadio) return makeErr('action', { ref: r, action: k }, 'not_checkable', 'ref ' + r + ' is not checkable');
+        if (k === 'check') {
+          try {
+            if (!el.checked) dispatchMouseClick(el);
+          } catch (_e11) {}
+          return makeOk('action', { ref: r, action: k, checked: !!el.checked });
+        }
+        // uncheck
+        if (!isCheckbox) return makeErr('action', { ref: r, action: k }, 'not_uncheckable', 'ref ' + r + ' is not uncheckable');
+        try {
+          if (el.checked) dispatchMouseClick(el);
+        } catch (_e12) {}
+        return makeOk('action', { ref: r, action: k, checked: !!el.checked });
       }
 
       return makeErr('action', { ref: r, action: k }, 'unsupported_action', 'unsupported action: ' + k);
@@ -330,6 +435,40 @@
         var tr = json.length > limit;
         var val = tr ? json.slice(0, limit) : json;
         return makeOk('query', { ref: r, kind: k, value: val, truncated: tr });
+      }
+
+      if (k === 'value') {
+        var v = '';
+        try { v = el.value != null ? el.value : ''; } catch (_e1) { v = ''; }
+        v = safeString(v);
+        var tv = v.length > limit;
+        var vv = tv ? v.slice(0, limit) : v;
+        return makeOk('query', { ref: r, kind: k, value: vv, truncated: tv });
+      }
+
+      if (k === 'html') {
+        var h = '';
+        try { h = el.innerHTML || ''; } catch (_e2) { h = ''; }
+        h = safeString(h);
+        var th = h.length > limit;
+        var vh = th ? h.slice(0, limit) : h;
+        return makeOk('query', { ref: r, kind: k, value: vh, truncated: th });
+      }
+
+      if (k === 'computed_styles') {
+        var s = null;
+        try { s = window.getComputedStyle ? window.getComputedStyle(el) : null; } catch (_e3) { s = null; }
+        var obj = s ? {
+          display: s.display,
+          color: s.color,
+          fontSize: s.fontSize,
+          backgroundColor: s.backgroundColor,
+          visibility: s.visibility,
+        } : {};
+        var st = JSON.stringify(obj);
+        var ts = st.length > limit;
+        var vs = ts ? st.slice(0, limit) : st;
+        return makeOk('query', { ref: r, kind: k, value: vs, truncated: ts });
       }
 
       if (k === 'outerHTML') {

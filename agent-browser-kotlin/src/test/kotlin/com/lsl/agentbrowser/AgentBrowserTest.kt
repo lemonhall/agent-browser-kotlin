@@ -17,6 +17,8 @@ class AgentBrowserTest {
         val js = AgentBrowser.snapshotJs(
             SnapshotJsOptions(
                 maxNodes = 123,
+                maxTextPerNode = 77,
+                maxAttrValueLen = 88,
                 interactiveOnly = false,
                 cursorInteractive = true,
                 scope = "#main",
@@ -24,6 +26,8 @@ class AgentBrowserTest {
         )
         assertContains(js, "window.__agentBrowser.snapshot(")
         assertContains(js, "\"maxNodes\":123")
+        assertContains(js, "\"maxTextPerNode\":77")
+        assertContains(js, "\"maxAttrValueLen\":88")
         assertContains(js, "\"interactiveOnly\":false")
         assertContains(js, "\"cursorInteractive\":true")
         assertContains(js, "\"scope\":\"#main\"")
@@ -102,6 +106,36 @@ class AgentBrowserTest {
     }
 
     @Test
+    fun renderSnapshot_includesKeyAttrs_forRefLeaves() {
+        val snapshotJson =
+            """
+            {
+              "ok": true,
+              "type": "snapshot",
+              "meta": { "url": "https://example.com", "title": "Example", "ts": 1 },
+              "stats": { "nodesVisited": 3, "nodesEmitted": 3, "truncated": false, "truncateReasons": [] },
+              "refs": {
+                "e1": { "ref":"e1", "tag":"a", "role":"link", "name":"Docs", "attrs": { "href": "/docs" } },
+                "e2": { "ref":"e2", "tag":"input", "role":"textbox", "name":"Search Input", "attrs": { "type":"text", "placeholder":"Search", "value":"hello" } }
+              },
+              "tree": {
+                "tag":"body",
+                "role":"document",
+                "children": [
+                  { "ref":"e1", "tag":"a", "role":"link", "name":"Docs", "attrs": { "href": "/docs" }, "children":[] },
+                  { "ref":"e2", "tag":"input", "role":"textbox", "name":"Search Input", "attrs": { "type":"text", "placeholder":"Search", "value":"hello" }, "children":[] }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val rendered = AgentBrowser.renderSnapshot(snapshotJson, RenderOptions(maxCharsTotal = 4000, maxNodes = 200, maxDepth = 12, compact = true))
+        assertContains(rendered.text, "href=\"/docs\"")
+        assertContains(rendered.text, "placeholder=\"Search\"")
+        assertContains(rendered.text, "value=\"hello\"")
+    }
+
+    @Test
     fun parseAction_successAndRefNotFound_areBothStructured() {
         val okJson =
             """
@@ -126,6 +160,31 @@ class AgentBrowserTest {
         val notFound = AgentBrowser.parseAction(notFoundJson)
         assertTrue(!notFound.ok)
         assertEquals("ref_not_found", notFound.error?.code)
+    }
+
+    @Test
+    fun actionJs_supportsSelectPayload() {
+        val js = AgentBrowser.actionJs("e1", ActionKind.SELECT, SelectPayload(values = listOf("beta")))
+        assertContains(js, "window.__agentBrowser.action(")
+        assertContains(js, "'select'")
+        assertContains(js, "\"values\":[\"beta\"]")
+    }
+
+    @Test
+    fun actionJs_supportsClearAndCheckKinds() {
+        val clear = AgentBrowser.actionJs("e1", ActionKind.CLEAR)
+        assertContains(clear, "'clear'")
+
+        val check = AgentBrowser.actionJs("e2", ActionKind.CHECK)
+        assertContains(check, "'check'")
+    }
+
+    @Test
+    fun queryJs_encodesRefKindAndLimit() {
+        val js = AgentBrowser.queryJs("e9", QueryKind.VALUE, QueryPayload(limitChars = 123))
+        assertContains(js, "window.__agentBrowser.query(")
+        assertContains(js, "'value'")
+        assertContains(js, "\"limitChars\":123")
     }
 
 }
