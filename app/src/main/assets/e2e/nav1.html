@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>E2E Nav 1</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
+      .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin: 12px 0; }
+      .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      a { color: #2563eb; }
+      button { padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; }
+      button.primary { background: #111827; color: #f9fafb; border-color: #111827; }
+      code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>Navigation Fixture: Page 1</h1>
+    <p>This page exists to validate <code>ref_not_found</code> after navigation.</p>
+
+    <div class="card">
+      <div class="row">
+        <a id="goNext" href="nav2.html" title="Go to page 2">Go Next →</a>
+        <button id="primaryAction" class="primary" aria-label="Primary Action">Primary Action</button>
+        <button id="secondaryAction">Secondary Action</button>
+      </div>
+      <p id="status">status: nav1</p>
+    </div>
+
+    <script>
+      (function () {
+        var btn = document.getElementById('primaryAction');
+        btn.addEventListener('click', function () {
+          document.getElementById('status').textContent = 'status: clicked on nav1';
+        });
+      })();
+    </script>
+  </body>
+</html>
+

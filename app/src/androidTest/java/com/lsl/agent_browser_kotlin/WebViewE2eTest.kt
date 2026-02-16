@@ -390,6 +390,107 @@ class WebViewE2eTest {
         }
     }
 
+    @Test
+    fun ref_lifecycle_navigation_makes_old_ref_invalid() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val downloadRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
+        val runPrefix = "run-${System.currentTimeMillis()}-nav"
+
+        ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
+            lateinit var webView: WebView
+            scenario.onActivity { activity -> webView = activity.webView }
+
+            loadUrlAndWait(scenario, "file:///android_asset/e2e/nav1.html")
+
+            clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 1)
+            stepDelay()
+
+            val nav1SnapRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val nav1Snap = AgentBrowser.parseSnapshot(nav1SnapRaw)
+            assertTrue(nav1Snap.ok)
+            val oldButtonRef = nav1Snap.refs.values.firstOrNull { it.tag == "button" && it.name == "Primary Action" }?.ref
+            assertNotNull("nav1 Primary Action button ref missing", oldButtonRef)
+            val linkRef = nav1Snap.refs.values.firstOrNull {
+                it.tag == "a" && (it.attrs["href"] ?: "").contains("nav2.html")
+            }?.ref
+            assertNotNull("nav1 Go Next link ref missing", linkRef)
+
+            val nav1Render = AgentBrowser.renderSnapshot(
+                nav1SnapRaw,
+                RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
+            )
+            scenario.onActivity { it.setSnapshotText("[NAV1] snapshot\n\n${nav1Render.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 2)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 2,
+                snapshotRaw = nav1SnapRaw,
+                snapshotText = nav1Render.text,
+            )
+            stepDelay()
+
+            val navLoaded = CountDownLatch(1)
+            scenario.onActivity { activity ->
+                activity.webView.webViewClient = object : android.webkit.WebViewClient() {
+                    override fun onPageFinished(view: WebView?, finishedUrl: String?) {
+                        navLoaded.countDown()
+                    }
+                }
+            }
+            val clickNavRaw = evalJs(webView, AgentBrowser.actionJs(linkRef!!, ActionKind.CLICK))
+            val clickNav = AgentBrowser.parseAction(clickNavRaw)
+            assertTrue(clickNav.ok)
+            assertTrue("navigation timed out: nav1 -> nav2", navLoaded.await(10, TimeUnit.SECONDS))
+            stepDelay()
+
+            scenario.onActivity {
+                assertTrue("expected nav2.html url after navigation, actual=${it.webView.url}", (it.webView.url ?: "").contains("nav2.html"))
+            }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 3)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            stepDelay()
+
+            val staleClickRaw = evalJs(webView, AgentBrowser.actionJs(oldButtonRef!!, ActionKind.CLICK))
+            val staleClick = AgentBrowser.parseAction(staleClickRaw)
+            assertTrue(!staleClick.ok)
+            assertEquals("ref_not_found", staleClick.error?.code)
+            scenario.onActivity { it.setSnapshotText("[NAV2] stale ref action -> ${staleClick.error?.code}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 4)
+            stepDelay()
+
+            val nav2SnapRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val nav2Snap = AgentBrowser.parseSnapshot(nav2SnapRaw)
+            assertTrue(nav2Snap.ok)
+            val nav2Render = AgentBrowser.renderSnapshot(
+                nav2SnapRaw,
+                RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
+            )
+            assertTrue("nav2 snapshot should include NAV2 banner text", nav2Render.text.contains("NAV2: You are on page 2"))
+            scenario.onActivity { it.setSnapshotText("[NAV2] snapshot\n\n${nav2Render.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 5)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 5,
+                snapshotRaw = nav2SnapRaw,
+                snapshotText = nav2Render.text,
+            )
+            stepDelay()
+        }
+    }
+
     private fun loadUrlAndWait(scenario: ActivityScenario<WebViewHarnessActivity>, url: String) {
         val pageLoaded = CountDownLatch(1)
         scenario.onActivity { activity ->
@@ -422,13 +523,14 @@ class WebViewE2eTest {
 
     private fun clearOldFrames(instrumentation: android.app.Instrumentation) {
         if (Build.VERSION.SDK_INT < 29) return
+        val cutoffSeconds = (System.currentTimeMillis() / 1000L) - (6 * 60 * 60)
         val resolver = instrumentation.targetContext.contentResolver
         val projection = arrayOf(MediaStore.Downloads._ID)
         resolver.query(
             MediaStore.Downloads.EXTERNAL_CONTENT_URI,
             projection,
-            "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?",
-            arrayOf("%agent-browser-kotlin/e2e/frames%", "%step-%.png"),
+            "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ? AND ${MediaStore.Downloads.DATE_ADDED} < ?",
+            arrayOf("%agent-browser-kotlin/e2e/frames%", "%step-%.png", cutoffSeconds.toString()),
             null,
         )?.use { cursor ->
             val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
@@ -442,13 +544,14 @@ class WebViewE2eTest {
 
     private fun clearOldSnapshots(instrumentation: android.app.Instrumentation) {
         if (Build.VERSION.SDK_INT < 29) return
+        val cutoffSeconds = (System.currentTimeMillis() / 1000L) - (6 * 60 * 60)
         val resolver = instrumentation.targetContext.contentResolver
         val projection = arrayOf(MediaStore.Downloads._ID)
         resolver.query(
             MediaStore.Downloads.EXTERNAL_CONTENT_URI,
             projection,
-            "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?",
-            arrayOf("%agent-browser-kotlin/e2e/snapshots%", "%-snapshot.%"),
+            "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ? AND ${MediaStore.Downloads.DATE_ADDED} < ?",
+            arrayOf("%agent-browser-kotlin/e2e/snapshots%", "%-snapshot.%", cutoffSeconds.toString()),
             null,
         )?.use { cursor ->
             val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
