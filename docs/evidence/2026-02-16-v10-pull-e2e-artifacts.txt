@@ -1,0 +1,6 @@
+Pulling artifacts into E:\development\agent-browser-kotlin\adb_dumps\\e2e\20260216-121249
+/sdcard/Download/agent-browser-kotlin/e2e/frames/: 321 files pulled, 0 skipped. 17.8 MB/s (73781823 bytes in 3.943s)
+Selected latest run=1771215047677 (16 frames)
+/sdcard/Download/agent-browser-kotlin/e2e/snapshots/: 176 files pulled, 0 skipped. 1.8 MB/s (810640 bytes in 0.426s)
+OK: pulled snapshots: adb_dumps\\e2e\\latest\\snapshots\\ (files=20)
+OK: built mp4 from frames: adb_dumps\\e2e\\latest\\e2e-latest.mp4
