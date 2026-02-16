@@ -166,6 +166,15 @@ object AgentBrowser {
     fun pressKeyJs(key: String): String =
         pageJs(PageKind.PRESS_KEY, PagePayload(key = key))
 
+    fun keyDownJs(key: String): String =
+        pageJs(PageKind.KEY_DOWN, PagePayload(key = key))
+
+    fun keyUpJs(key: String): String =
+        pageJs(PageKind.KEY_UP, PagePayload(key = key))
+
+    fun charJs(text: String): String =
+        pageJs(PageKind.CHAR, PagePayload(text = text))
+
     fun getUrlJs(): String =
         "JSON.stringify((window.__agentBrowser && window.__agentBrowser.page && window.__agentBrowser.page.getUrl) ? window.__agentBrowser.page.getUrl() : (location && location.href ? location.href : ''))"
 

@@ -42,6 +42,32 @@ class AgentBrowserTest {
     }
 
     @Test
+    fun queryJs_supportsExtendedStateKinds() {
+        val js = AgentBrowser.queryJs("e1", QueryKind.IS_VISIBLE, QueryPayload(limitChars = 10))
+        assertContains(js, "window.__agentBrowser.query(")
+        assertContains(js, "'isvisible'")
+
+        val js2 = AgentBrowser.queryJs("e1", QueryKind.IS_ENABLED, QueryPayload(limitChars = 10))
+        assertContains(js2, "'isenabled'")
+
+        val js3 = AgentBrowser.queryJs("e1", QueryKind.IS_CHECKED, QueryPayload(limitChars = 10))
+        assertContains(js3, "'ischecked'")
+    }
+
+    @Test
+    fun pageJs_supportsKeyDownKeyUpChar() {
+        val kd = AgentBrowser.pageJs(PageKind.KEY_DOWN, PagePayload(key = "A"))
+        assertContains(kd, "window.__agentBrowser.page('keyDown'")
+
+        val ku = AgentBrowser.pageJs(PageKind.KEY_UP, PagePayload(key = "A"))
+        assertContains(ku, "window.__agentBrowser.page('keyUp'")
+
+        val ch = AgentBrowser.pageJs(PageKind.CHAR, PagePayload(text = "a"))
+        assertContains(ch, "window.__agentBrowser.page('char'")
+        assertContains(ch, "\"text\":\"a\"")
+    }
+
+    @Test
     fun parseSnapshot_acceptsMinimalSchema_andIgnoresUnknownKeys() {
         val snapshotJson =
             """

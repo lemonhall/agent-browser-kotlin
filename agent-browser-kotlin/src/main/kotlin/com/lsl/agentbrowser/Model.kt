@@ -123,6 +123,9 @@ enum class QueryKind(val wire: String) {
     HTML("html"),
     OUTER_HTML("outerHTML"),
     COMPUTED_STYLES("computed_styles"),
+    IS_VISIBLE("isvisible"),
+    IS_ENABLED("isenabled"),
+    IS_CHECKED("ischecked"),
 }
 
 @Serializable
@@ -146,6 +149,9 @@ enum class PageKind(val wire: String) {
     INFO("info"),
     SCROLL("scroll"),
     PRESS_KEY("pressKey"),
+    KEY_DOWN("keyDown"),
+    KEY_UP("keyUp"),
+    CHAR("char"),
 }
 
 @Serializable
@@ -156,6 +162,7 @@ data class PagePayload(
     val deltaY: Int? = null,
     val behavior: String? = null,
     val key: String? = null,
+    val text: String? = null,
 )
 
 @Serializable
@@ -174,6 +181,8 @@ data class PageResult(
     val scrollX: Int? = null,
     val scrollY: Int? = null,
     val viewport: PageViewport? = null,
+    val key: String? = null,
+    val text: String? = null,
     val meta: Meta? = null,
     val error: JsError? = null,
 )

@@ -410,6 +410,51 @@
     return { success: true, key: kk };
   }
 
+  function pageKeyDown(key) {
+    var kk = safeString(key);
+    try {
+      var el = document.activeElement;
+      if (el && typeof KeyboardEvent !== 'undefined') {
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: kk, bubbles: true }));
+      }
+    } catch (_e1) {}
+    return { success: true, key: kk };
+  }
+
+  function pageKeyUp(key) {
+    var kk = safeString(key);
+    try {
+      var el = document.activeElement;
+      if (el && typeof KeyboardEvent !== 'undefined') {
+        el.dispatchEvent(new KeyboardEvent('keyup', { key: kk, bubbles: true }));
+      }
+    } catch (_e1) {}
+    return { success: true, key: kk };
+  }
+
+  function pageChar(text) {
+    var t = safeString(text);
+    try {
+      var el = document.activeElement;
+      if (el) {
+        var tag = (el.tagName || '').toLowerCase();
+        var isTextInput = tag === 'input' || tag === 'textarea';
+        if (isTextInput && typeof el.value === 'string') {
+          el.value = safeString(el.value) + t;
+          try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e2) {}
+          try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (_e3) {}
+        } else if (el.isContentEditable && document.execCommand) {
+          try { document.execCommand('insertText', false, t); } catch (_e4) {}
+        } else if (typeof KeyboardEvent !== 'undefined') {
+          try { el.dispatchEvent(new KeyboardEvent('keydown', { key: t, bubbles: true })); } catch (_e5) {}
+          try { el.dispatchEvent(new KeyboardEvent('keypress', { key: t, bubbles: true })); } catch (_e6) {}
+          try { el.dispatchEvent(new KeyboardEvent('keyup', { key: t, bubbles: true })); } catch (_e7) {}
+        }
+      }
+    } catch (_e1) {}
+    return { success: true, text: t };
+  }
+
   window.__agentBrowser = {
     snapshot: function snapshot(options) {
       var cfg = options || {};
@@ -722,6 +767,24 @@
         return makeOk('query', { ref: r, kind: k, value: val2, truncated: tr2 });
       }
 
+      if (k === 'isvisible') {
+        var vis = false;
+        try { vis = isVisible(el); } catch (_e4) { vis = false; }
+        return makeOk('query', { ref: r, kind: k, value: vis ? 'true' : 'false', truncated: false });
+      }
+
+      if (k === 'isenabled') {
+        var enabled = true;
+        try { enabled = !(el.disabled === true); } catch (_e5) { enabled = true; }
+        return makeOk('query', { ref: r, kind: k, value: enabled ? 'true' : 'false', truncated: false });
+      }
+
+      if (k === 'ischecked') {
+        var chk = false;
+        try { chk = !!el.checked; } catch (_e6) { chk = false; }
+        return makeOk('query', { ref: r, kind: k, value: chk ? 'true' : 'false', truncated: false });
+      }
+
       return makeErr('query', { ref: r, kind: k }, 'unsupported_query', 'unsupported query: ' + k);
     },
     page: function page(kind, _payload) {
@@ -773,6 +836,22 @@
         return makeOk('page', { kind: k, key: res.key });
       }
 
+      if (k === 'keyDown') {
+        var res2 = pageKeyDown(payload.key);
+        return makeOk('page', { kind: k, key: res2.key });
+      }
+
+      if (k === 'keyUp') {
+        var res3 = pageKeyUp(payload.key);
+        return makeOk('page', { kind: k, key: res3.key });
+      }
+
+      if (k === 'char') {
+        var text = payload.text != null ? payload.text : payload.char;
+        var res4 = pageChar(text);
+        return makeOk('page', { kind: k, text: res4.text });
+      }
+
       return makeErr('page', { kind: k }, 'unsupported_page', 'unsupported page: ' + k);
     },
   };
@@ -785,5 +864,8 @@
     pageFn.getUrl = function () { return pageGetUrl(); };
     pageFn.getTitle = function () { return pageGetTitle(); };
     pageFn.pressKey = function (key) { return pagePressKey(key); };
+    pageFn.keyDown = function (key) { return pageKeyDown(key); };
+    pageFn.keyUp = function (key) { return pageKeyUp(key); };
+    pageFn.char = function (text) { return pageChar(text); };
   } catch (_eFinal) {}
 })();

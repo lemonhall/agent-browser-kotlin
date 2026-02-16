@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Keyboard + State Queries</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; background: #f7f7f7; }
+    button:active { transform: translateY(1px); }
+    input[type="text"] { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; min-width: 220px; }
+    textarea { width: 100%; height: 180px; padding: 10px 12px; border-radius: 12px; border: 1px solid #ccc; white-space: pre; }
+    .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #eef6ff; border: 1px solid #cfe7ff; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Keyboard + State Queries</h1>
+  <div class="muted">Offline fixture for WebView E2E: keyDown/keyUp/char + isvisible/isenabled/ischecked.</div>
+
+  <div class="row">
+    <button id="btnToggleDisabled">Toggle Disabled (input)</button>
+    <button id="btnToggleVisible">Toggle Visible (target)</button>
+    <span class="pill" id="status">status: ready</span>
+  </div>
+
+  <div class="row">
+    <label>
+      <span class="muted">Typing Field:</span>
+      <input id="field" aria-label="Typing Field" type="text" placeholder="Type here" />
+    </label>
+    <label class="row" style="gap:8px;">
+      <input id="cb" aria-label="Agree Checkbox" type="checkbox" />
+      <span>Agree</span>
+    </label>
+  </div>
+
+  <div class="row">
+    <button id="toggleTarget">Toggleable Action</button>
+  </div>
+
+  <h2>Event Log</h2>
+  <textarea id="log" aria-label="Event Log" readonly></textarea>
+
+  <script>
+    const field = document.getElementById('field');
+    const cb = document.getElementById('cb');
+    const status = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const toggleTarget = document.getElementById('toggleTarget');
+    const btnToggleDisabled = document.getElementById('btnToggleDisabled');
+    const btnToggleVisible = document.getElementById('btnToggleVisible');
+
+    function log(line) {
+      logEl.value = (logEl.value ? logEl.value + "\n" : "") + line;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    field.addEventListener('focus', () => { status.textContent = 'status: field-focused'; log('focus'); });
+    field.addEventListener('keydown', (e) => { log('down:' + e.key); });
+    field.addEventListener('keyup', (e) => { log('up:' + e.key); });
+    field.addEventListener('input', () => { log('input:' + field.value); });
+    field.addEventListener('change', () => { log('change:' + field.value); });
+
+    cb.addEventListener('change', () => { log('checked:' + cb.checked); });
+
+    toggleTarget.addEventListener('click', () => {
+      status.textContent = 'status: toggleTarget-clicked';
+      log('toggleTarget:click');
+    });
+
+    btnToggleDisabled.addEventListener('click', () => {
+      field.disabled = !field.disabled;
+      status.textContent = 'status: field.disabled=' + field.disabled;
+      log('disabled:' + field.disabled);
+    });
+
+    btnToggleVisible.addEventListener('click', () => {
+      const nowHidden = toggleTarget.style.display !== 'none';
+      toggleTarget.style.display = nowHidden ? 'none' : 'inline-block';
+      status.textContent = 'status: toggleTarget.display=' + (toggleTarget.style.display || 'inline-block');
+      log('visible:' + (toggleTarget.style.display !== 'none'));
+    });
+  </script>
+</body>
+</html>
+

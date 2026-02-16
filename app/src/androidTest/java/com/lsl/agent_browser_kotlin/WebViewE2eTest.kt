@@ -696,6 +696,183 @@ class WebViewE2eTest {
         }
     }
 
+    @Test
+    fun keyboard_and_state_queries_keyDown_keyUp_char_isvisible_isenabled_ischecked() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val downloadRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
+        val downloadSnapshotsRelativePath = "Download/agent-browser-kotlin/e2e/snapshots/"
+        val runPrefix = "run-${System.currentTimeMillis()}-kbd"
+
+        ActivityScenario.launch(WebViewHarnessActivity::class.java).use { scenario ->
+            lateinit var webView: WebView
+            scenario.onActivity { activity -> webView = activity.webView }
+
+            loadUrlAndWait(scenario, "file:///android_asset/e2e/keyboard_state.html")
+
+            clearOldFrames(instrumentation)
+            clearOldSnapshots(instrumentation)
+            stepDelay()
+
+            evalJs(webView, AgentBrowser.getScript())
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 1)
+            stepDelay()
+
+            val snapRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val snap = AgentBrowser.parseSnapshot(snapRaw)
+            assertTrue(snap.ok)
+
+            val inputRef = snap.refs.values.firstOrNull { it.tag == "input" && it.name == "Typing Field" }?.ref
+            assertNotNull("Typing Field input ref missing", inputRef)
+            val logRef = snap.refs.values.firstOrNull { it.tag == "textarea" && it.name == "Event Log" }?.ref
+            assertNotNull("Event Log textarea ref missing", logRef)
+            val checkboxRef = snap.refs.values.firstOrNull { it.tag == "input" && it.role == "checkbox" }?.ref
+            assertNotNull("checkbox ref missing", checkboxRef)
+            val toggleTargetRef = snap.refs.values.firstOrNull { it.tag == "button" && it.name == "Toggleable Action" }?.ref
+            assertNotNull("Toggleable Action ref missing", toggleTargetRef)
+            val toggleDisabledRef = snap.refs.values.firstOrNull { it.tag == "button" && (it.name ?: "").startsWith("Toggle Disabled") }?.ref
+            assertNotNull("Toggle Disabled button ref missing", toggleDisabledRef)
+            val toggleVisibleRef = snap.refs.values.firstOrNull { it.tag == "button" && (it.name ?: "").startsWith("Toggle Visible") }?.ref
+            assertNotNull("Toggle Visible button ref missing", toggleVisibleRef)
+
+            val render0 = AgentBrowser.renderSnapshot(
+                snapRaw,
+                RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
+            )
+            scenario.onActivity { it.setSnapshotText("[KBD] initial snapshot\n\n${render0.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 2)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 2,
+                snapshotRaw = snapRaw,
+                snapshotText = render0.text,
+            )
+            stepDelay()
+
+            val enabled0Raw = evalJs(webView, AgentBrowser.queryJs(inputRef!!, QueryKind.IS_ENABLED, QueryPayload(limitChars = 20)))
+            val enabled0 = AgentBrowser.parseQuery(enabled0Raw)
+            assertTrue(enabled0.ok)
+            assertEquals("true", enabled0.value)
+
+            val vis0Raw = evalJs(webView, AgentBrowser.queryJs(toggleTargetRef!!, QueryKind.IS_VISIBLE, QueryPayload(limitChars = 20)))
+            val vis0 = AgentBrowser.parseQuery(vis0Raw)
+            assertTrue(vis0.ok)
+            assertEquals("true", vis0.value)
+
+            val checked0Raw = evalJs(webView, AgentBrowser.queryJs(checkboxRef!!, QueryKind.IS_CHECKED, QueryPayload(limitChars = 20)))
+            val checked0 = AgentBrowser.parseQuery(checked0Raw)
+            assertTrue(checked0.ok)
+            assertEquals("false", checked0.value)
+
+            val focusRaw = evalJs(webView, AgentBrowser.actionJs(inputRef, ActionKind.FOCUS))
+            val focus = AgentBrowser.parseAction(focusRaw)
+            assertTrue(focus.ok)
+            stepDelay()
+
+            val clickFieldRaw = evalJs(webView, AgentBrowser.actionJs(inputRef, ActionKind.CLICK))
+            val clickField = AgentBrowser.parseAction(clickFieldRaw)
+            assertTrue(clickField.ok)
+            stepDelay()
+
+            val kdRaw = evalJs(webView, AgentBrowser.pageJs(PageKind.KEY_DOWN, PagePayload(key = "A")))
+            val kd = AgentBrowser.parsePage(kdRaw)
+            assertTrue(kd.ok)
+            stepDelay()
+
+            val chRaw = evalJs(webView, AgentBrowser.pageJs(PageKind.CHAR, PagePayload(text = "a")))
+            val ch = AgentBrowser.parsePage(chRaw)
+            assertTrue(ch.ok)
+            stepDelay()
+
+            val kuRaw = evalJs(webView, AgentBrowser.pageJs(PageKind.KEY_UP, PagePayload(key = "A")))
+            val ku = AgentBrowser.parsePage(kuRaw)
+            assertTrue(ku.ok)
+            stepDelay()
+
+            val fieldValueRaw = evalJs(webView, AgentBrowser.queryJs(inputRef, QueryKind.VALUE, QueryPayload(limitChars = 200)))
+            val fieldValue = AgentBrowser.parseQuery(fieldValueRaw)
+            assertTrue(fieldValue.ok)
+            assertEquals("a", fieldValue.value)
+
+            val logValueRaw = evalJs(webView, AgentBrowser.queryJs(logRef!!, QueryKind.VALUE, QueryPayload(limitChars = 2000)))
+            val logValue = AgentBrowser.parseQuery(logValueRaw)
+            assertTrue(logValue.ok)
+            val logText = logValue.value ?: ""
+            assertTrue("expected down:A in log, got=$logText", logText.contains("down:A"))
+            assertTrue("expected up:A in log, got=$logText", logText.contains("up:A"))
+            assertTrue("expected input:a in log, got=$logText", logText.contains("input:a"))
+
+            scenario.onActivity { it.setSnapshotText("[KBD] fieldValue=${fieldValue.value}\n\nlog:\n$logText") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 3)
+            stepDelay()
+
+            val disableRaw = evalJs(webView, AgentBrowser.actionJs(toggleDisabledRef!!, ActionKind.CLICK))
+            val disable = AgentBrowser.parseAction(disableRaw)
+            assertTrue(disable.ok)
+            stepDelay()
+
+            val enabled1Raw = evalJs(webView, AgentBrowser.queryJs(inputRef, QueryKind.IS_ENABLED, QueryPayload(limitChars = 20)))
+            val enabled1 = AgentBrowser.parseQuery(enabled1Raw)
+            assertTrue(enabled1.ok)
+            assertEquals("false", enabled1.value)
+
+            val checkRaw = evalJs(webView, AgentBrowser.actionJs(checkboxRef, ActionKind.CHECK))
+            val check = AgentBrowser.parseAction(checkRaw)
+            assertTrue(check.ok)
+            val checked1Raw = evalJs(webView, AgentBrowser.queryJs(checkboxRef, QueryKind.IS_CHECKED, QueryPayload(limitChars = 20)))
+            val checked1 = AgentBrowser.parseQuery(checked1Raw)
+            assertTrue(checked1.ok)
+            assertEquals("true", checked1.value)
+
+            val uncheckRaw = evalJs(webView, AgentBrowser.actionJs(checkboxRef, ActionKind.UNCHECK))
+            val uncheck = AgentBrowser.parseAction(uncheckRaw)
+            assertTrue(uncheck.ok)
+            val checked2Raw = evalJs(webView, AgentBrowser.queryJs(checkboxRef, QueryKind.IS_CHECKED, QueryPayload(limitChars = 20)))
+            val checked2 = AgentBrowser.parseQuery(checked2Raw)
+            assertTrue(checked2.ok)
+            assertEquals("false", checked2.value)
+
+            val hideRaw = evalJs(webView, AgentBrowser.actionJs(toggleVisibleRef!!, ActionKind.CLICK))
+            val hide = AgentBrowser.parseAction(hideRaw)
+            assertTrue(hide.ok)
+            stepDelay()
+
+            val vis1Raw = evalJs(webView, AgentBrowser.queryJs(toggleTargetRef, QueryKind.IS_VISIBLE, QueryPayload(limitChars = 20)))
+            val vis1 = AgentBrowser.parseQuery(vis1Raw)
+            assertTrue(vis1.ok)
+            assertEquals("false", vis1.value)
+
+            val showRaw = evalJs(webView, AgentBrowser.actionJs(toggleVisibleRef, ActionKind.CLICK))
+            val show = AgentBrowser.parseAction(showRaw)
+            assertTrue(show.ok)
+            stepDelay()
+
+            val vis2Raw = evalJs(webView, AgentBrowser.queryJs(toggleTargetRef, QueryKind.IS_VISIBLE, QueryPayload(limitChars = 20)))
+            val vis2 = AgentBrowser.parseQuery(vis2Raw)
+            assertTrue(vis2.ok)
+            assertEquals("true", vis2.value)
+
+            val afterRaw = evalJs(webView, AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly = false)))
+            val afterRender = AgentBrowser.renderSnapshot(
+                afterRaw,
+                RenderOptions(maxCharsTotal = 8000, maxNodes = 260, maxDepth = 14, compact = true),
+            )
+            scenario.onActivity { it.setSnapshotText("[KBD] after state changes\n\n${afterRender.text}") }
+            captureStep(instrumentation, device, downloadRelativePath, runPrefix, 4)
+            dumpSnapshotArtifacts(
+                instrumentation = instrumentation,
+                relativePath = downloadSnapshotsRelativePath,
+                runPrefix = runPrefix,
+                step = 4,
+                snapshotRaw = afterRaw,
+                snapshotText = afterRender.text,
+            )
+            stepDelay()
+        }
+    }
+
     private fun loadUrlAndWait(scenario: ActivityScenario<WebViewHarnessActivity>, url: String) {
         val pageLoaded = CountDownLatch(1)
         scenario.onActivity { activity ->
