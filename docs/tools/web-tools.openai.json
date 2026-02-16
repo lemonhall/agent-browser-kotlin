@@ -155,6 +155,80 @@
         "required": ["ref"]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_clear",
+      "description": "清空指定 ref 的输入框值。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_focus",
+      "description": "让指定 ref 元素获取焦点。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_hover",
+      "description": "触发指定 ref 元素的 hover（mouseenter/mouseover）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_scroll_into_view",
+      "description": "把指定 ref 元素滚动到可见区域。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" }
+        },
+        "required": ["ref"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_query",
+      "description": "查询指定 ref 的信息（text/html/outerHTML/value/attrs/computed_styles）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["text", "html", "outerHTML", "value", "attrs", "computed_styles"]
+          },
+          "max_length": { "type": "integer", "default": 4000 }
+        },
+        "required": ["ref", "kind"]
+      }
+    }
   }
 ]
-

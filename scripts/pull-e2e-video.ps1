@@ -22,6 +22,7 @@ $ffmpeg = Resolve-FfmpegPath
 
 $deviceMp4 = "/sdcard/Download/agent-browser-kotlin/e2e-latest.mp4"
 $deviceFramesDir = "/sdcard/Download/agent-browser-kotlin/e2e/frames"
+$deviceSnapshotsDir = "/sdcard/Download/agent-browser-kotlin/e2e/snapshots"
 $deviceAppExternalFramesDir = "/sdcard/Android/data/com.lsl.agent_browser_kotlin/files/e2e/frames"
 
 $outRoot = Join-Path $PWD "adb_dumps\\e2e"
@@ -65,6 +66,27 @@ $latestRun = ($runs | Measure-Object -Maximum).Maximum
 $pngs = $runPngs | Where-Object { $_.Name -like "run-$latestRun-step-*.png" } | Sort-Object Name
 if ($pngs.Count -eq 0) { throw "No frames found for latest run=$latestRun in $framesLocal" }
 Write-Host "Selected latest run=$latestRun ($($pngs.Count) frames)"
+
+$snapshotsLocal = Join-Path $runDir "snapshots"
+New-Item -ItemType Directory -Force -Path $snapshotsLocal | Out-Null
+$p3 = Start-Process -FilePath $adb -ArgumentList @("pull", $deviceSnapshotsDir, $snapshotsLocal) -NoNewWindow -PassThru -Wait
+if ($p3.ExitCode -ne 0) {
+  Write-Warning "adb pull snapshots failed (exit=$($p3.ExitCode))"
+}
+
+$runSnapshots = @(
+  Get-ChildItem -Path $snapshotsLocal -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like "run-$latestRun-step-*-snapshot.*" } |
+    Sort-Object Name
+)
+if ($runSnapshots.Count -eq 0) {
+  Write-Warning "No snapshots found for latest run=$latestRun under $snapshotsLocal"
+} else {
+  $latestSnapshotsDir = Join-Path $latestDir "snapshots"
+  New-Item -ItemType Directory -Force -Path $latestSnapshotsDir | Out-Null
+  foreach ($f in $runSnapshots) { Copy-Item -Force $f.FullName (Join-Path $latestSnapshotsDir $f.Name) }
+  Write-Host "OK: pulled snapshots: adb_dumps\\e2e\\latest\\snapshots\\ (files=$($runSnapshots.Count))"
+}
 
 $concat = Join-Path $runDir "concat.txt"
 $durationSec = 3.5

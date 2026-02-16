@@ -51,9 +51,11 @@ webView.evaluateJavascript(AgentBrowser.actionJs(ref, ActionKind.SELECT, SelectP
 - tool → 本库映射（上层工具层负责把 tool 参数喂给 WebView 的 `evaluateJavascript`）：
   - `web_snapshot` → `AgentBrowser.snapshotJs(SnapshotJsOptions(interactiveOnly=..., cursorInteractive=..., scope=...))`
   - `web_click/web_fill/web_select/web_check/web_uncheck` → `AgentBrowser.actionJs(ref, ActionKind.* , payload?)`
+  - `web_clear/web_focus/web_hover/web_scroll_into_view` → `AgentBrowser.actionJs(ref, ActionKind.CLEAR/FOCUS/HOVER/SCROLL_INTO_VIEW)`
   - `web_scroll` → `AgentBrowser.scrollJs(direction, amount)`
   - `web_press_key` → `AgentBrowser.pressKeyJs(key)`
   - `web_get_text/web_get_value` → `AgentBrowser.queryJs(ref, QueryKind.TEXT/QueryKind.VALUE, QueryPayload(limitChars=...))`
+  - `web_query` → `AgentBrowser.queryJs(ref, QueryKind.*, QueryPayload(limitChars=...))`
 
 ## 开发与验证
 
