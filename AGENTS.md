@@ -77,9 +77,8 @@ WebView (JS 注入) ── snapshot/action/query(JSON) ──> Kotlin 解析/渲
 
 #### E2E 录屏产物位置（本仓库约定）
 
-- 设备端优先：`/sdcard/Download/agent-browser-kotlin/e2e-latest.mp4`（若设备支持 `screenrecord`）
-- 设备端 fallback（通用）：`/sdcard/Android/data/com.lsl.agent_browser_kotlin/files/e2e/frames/step-*.png`
-- 一键拉取并生成视频（本机）：`pwsh -File .\\scripts\\pull-e2e-video.ps1`
+- 设备端（人类可感知证据）：`/sdcard/Download/agent-browser-kotlin/e2e/frames/step-*.png`（由 instrumentation 测试通过 MediaStore 写入 Downloads）
+- 本机一键拉取并生成视频（mp4）：`pwsh -File .\\scripts\\pull-e2e-video.ps1`
 
 
 ## ADB Debug（导出 sessions/events.jsonl）
