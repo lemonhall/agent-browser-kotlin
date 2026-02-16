@@ -1,0 +1,52 @@
+Pulling artifacts into E:\development\agent-browser-kotlin\adb_dumps\\e2e\20260216-172929
+/sdcard/Download/agent-browser-kotlin/e2e/frames/: 289 files pulled, 0 skipped. 17.1 MB/s (56684766 bytes in 3.161s)
+Detected runs: 47 (latest run=1771234108130)
+/sdcard/Download/agent-browser-kotlin/e2e/snapshots/: 276 files pulled, 0 skipped. 1.1 MB/s (1121968 bytes in 0.976s)
+OK: built run=1771227507193 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771227556746 label= frames=16 snapshots=20 events=0
+OK: built run=1771227636890 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771227652758 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771227731944 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771227751150 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771227774562 label=nav frames=5 snapshots=4 events=0
+OK: built run=1771230447759 label=agent frames=1 snapshots=0 events=0
+OK: built run=1771230460743 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771230509360 label= frames=16 snapshots=20 events=0
+OK: built run=1771230589133 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771230604835 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771230683928 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771230703240 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771230726853 label=nav frames=5 snapshots=4 events=0
+OK: built run=1771231009427 label=agent frames=2 snapshots=0 events=1
+OK: built run=1771231020972 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771231069469 label= frames=16 snapshots=20 events=0
+OK: built run=1771231149163 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771231164995 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771231244103 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771231263565 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771231286837 label=nav frames=5 snapshots=4 events=0
+OK: built run=1771231763919 label=agent frames=12 snapshots=8 events=1
+OK: built run=1771231828531 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771231876963 label= frames=16 snapshots=20 events=0
+OK: built run=1771231956489 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771231972186 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771232051342 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771232070537 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771232093920 label=nav frames=5 snapshots=4 events=0
+OK: built run=1771233223620 label=agent frames=11 snapshots=8 events=1
+OK: built run=1771233283829 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771233332331 label= frames=16 snapshots=20 events=0
+OK: built run=1771233412048 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771233427815 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771233506859 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771233526188 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771233549550 label=nav frames=5 snapshots=4 events=0
+OK: built run=1771233782125 label=agent frames=11 snapshots=8 events=1
+OK: built run=1771233842911 label=kbd frames=4 snapshots=4 events=0
+OK: built run=1771233891267 label= frames=16 snapshots=20 events=0
+OK: built run=1771233970493 label=repeat frames=2 snapshots=2 events=0
+OK: built run=1771233986477 label=v13 frames=10 snapshots=4 events=0
+OK: built run=1771234065363 label=scrollIntoView frames=2 snapshots=2 events=0
+OK: built run=1771234084657 label=cookie frames=3 snapshots=4 events=0
+OK: built run=1771234108130 label=nav frames=5 snapshots=4 events=0
+OK: latest entrypoints: adb_dumps\\e2e\\latest\\index.html / report.html / e2e-latest.mp4

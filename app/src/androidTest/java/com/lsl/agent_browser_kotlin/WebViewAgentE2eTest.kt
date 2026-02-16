@@ -8,6 +8,7 @@ import androidx.test.uiautomator.UiDevice
 import com.lsl.agent_browser_kotlin.agent.E2eArtifacts
 import com.lsl.agent_browser_kotlin.agent.OpenAgenticWebTools
 import com.lsl.agent_browser_kotlin.agent.OpenAIChatCompletionsHttpProvider
+import com.lsl.agent_browser_kotlin.agent.OpenAIResponsesSseHttpProvider
 import com.lsl.agent_browser_kotlin.agent.WebToolRuntime
 import com.lsl.agent_browser_kotlin.agent.clearOldFrames
 import com.lsl.agent_browser_kotlin.agent.clearOldSnapshots
@@ -47,6 +48,7 @@ class WebViewAgentE2eTest {
         val apiKey = args.getString("OPENAI_API_KEY").orEmpty().trim()
         val baseUrl = args.getString("OPENAI_BASE_URL").orEmpty().trim().ifEmpty { "https://api.openai.com/v1" }
         val model = args.getString("MODEL").orEmpty().trim().ifEmpty { "gpt-5.2" }
+        val protocol = args.getString("OPENAI_PROTOCOL").orEmpty().trim().lowercase().ifEmpty { "responses" }
         assumeTrue("OPENAI_API_KEY missing; skipping real-agent E2E", apiKey.isNotEmpty())
 
         val downloadFramesRelativePath = "Download/agent-browser-kotlin/e2e/frames/"
@@ -84,7 +86,12 @@ class WebViewAgentE2eTest {
 
             val runtime = WebToolRuntime(webView = webView, artifacts = artifacts)
             val tools = ToolRegistry(OpenAgenticWebTools.all(runtime))
-            val provider = OpenAIChatCompletionsHttpProvider(baseUrl = baseUrl)
+            val provider =
+                when (protocol) {
+                    "legacy", "chat", "chat-completions" -> OpenAIChatCompletionsHttpProvider(baseUrl = baseUrl)
+                    "responses", "sse" -> OpenAIResponsesSseHttpProvider(baseUrl = baseUrl)
+                    else -> OpenAIResponsesSseHttpProvider(baseUrl = baseUrl)
+                }
 
             val options =
                 OpenAgenticOptions(
@@ -128,20 +135,22 @@ class WebViewAgentE2eTest {
 
             assertNotNull("missing SystemInit", init)
             assertNotNull("missing Result", result)
-            runtime.writeSessionId(init!!.sessionId)
+            val init0 = init ?: throw AssertionError("missing SystemInit")
+            val result0 = result ?: throw AssertionError("missing Result")
+            runtime.writeSessionId(init0.sessionId)
             // Persist sessions/events for human review even when assertions fail.
             runCatching {
-                val sessionDir = File(storeRoot, "sessions/${init.sessionId}")
+                val sessionDir = File(storeRoot, "sessions/${init0.sessionId}")
                 val eventsPath = File(sessionDir, "events.jsonl")
                 val metaPath = File(sessionDir, "meta.json")
                 if (eventsPath.exists()) artifacts.writeTextArtifact("${runPrefix}-events.jsonl", eventsPath.readText(Charsets.UTF_8), minBytes = 16)
                 if (metaPath.exists()) artifacts.writeTextArtifact("${runPrefix}-meta.json", metaPath.readText(Charsets.UTF_8), minBytes = 16)
             }
             artifacts.setUiText(
-                "[AGENT] finished\n\nsession_id=${init.sessionId}\n" +
+                "[AGENT] finished\n\nprovider=${provider.name}\nprotocol=$protocol\n\nsession_id=${init0.sessionId}\n" +
                     "tool_uses=${toolUses.size}\n" +
                     "assistant_msgs=${assistantMessages.size}\n\n" +
-                    "finalText=${result!!.finalText.take(400)}",
+                    "finalText=${result0.finalText.take(400)}",
             )
             artifacts.captureFrame()
 
@@ -160,7 +169,7 @@ class WebViewAgentE2eTest {
             artifacts.dumpSnapshotArtifacts(snapshotRaw = finalRaw, snapshotText = finalRender.text, step = finalStep)
 
             assertTrue("expected agree: true in final snapshot", finalRender.text.contains("agree: true"))
-            assertTrue("expected finalText to start with OK", (result!!.finalText ?: "").trim().startsWith("OK"))
+            assertTrue("expected finalText to start with OK", result0.finalText.trim().startsWith("OK"))
         }
     }
 }
