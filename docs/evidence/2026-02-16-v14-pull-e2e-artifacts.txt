@@ -1,0 +1,12 @@
+Pulling artifacts into E:\development\agent-browser-kotlin\adb_dumps\\e2e\20260216-154540
+/sdcard/Download/agent-browser-kotlin/e2e/frames/: 42 files pulled, 0 skipped. 13.9 MB/s (8017534 bytes in 0.548s)
+Detected runs: 7 (latest run=1771227774562)
+/sdcard/Download/agent-browser-kotlin/e2e/snapshots/: 40 files pulled, 0 skipped. 1.3 MB/s (160534 bytes in 0.115s)
+OK: built run=1771227507193 label=kbd frames=4 snapshots=4
+OK: built run=1771227556746 label= frames=16 snapshots=20
+OK: built run=1771227636890 label=repeat frames=2 snapshots=2
+OK: built run=1771227652758 label=v13 frames=10 snapshots=4
+OK: built run=1771227731944 label=scrollIntoView frames=2 snapshots=2
+OK: built run=1771227751150 label=cookie frames=3 snapshots=4
+OK: built run=1771227774562 label=nav frames=5 snapshots=4
+OK: latest entrypoints: adb_dumps\\e2e\\latest\\index.html / report.html / e2e-latest.mp4
